@@ -191,7 +191,7 @@ function save(d){
     _lastLocalSaveStr = payloadStr;
     sb.from('app_state').update({data: payload, updated_at: new Date().toISOString(), updated_by: (d.currentUser&&d.currentUser.name)||'unknown'}).eq('id','main')
       .then(({error})=>{
-        if(error){ console.error('Supabase save error:', error); }
+        if(error){ console.error('Supabase save error:', JSON.stringify(error), 'message:', error.message); }
       });
   }, 600);
 }

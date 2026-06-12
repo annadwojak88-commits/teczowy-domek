@@ -11,7 +11,7 @@
 body{font-family:'Nunito',Arial,sans-serif;background:#FDF6F0;color:#3D2C2C;font-size:14px}
 :root{
   --p:#D4845A;--pd:#B8653E;
-  --g:#6DBF8A;--r:#E05454;--a:#E8AC5A;
+  --g:#6DBF8A;--g-light:#EAF7EF;--r:#E05454;--a:#E8AC5A;
   --bg:#FDF6F0;--card:#FFFFFF;--txt:#3D2C2C;--lt:#9B8A84;--br:#EDE0D8;
   --shadow:0 2px 16px rgba(160,100,60,.09);
 }
@@ -232,6 +232,7 @@ function subscribeRealtime(){
       if(!S.pickupLog) S.pickupLog={};
       if(!S.childNotes) S.childNotes={};
       if(!S.calendar) S.calendar={};
+      if(!S.photoConsent) S.photoConsent={};
       if(!S.deadlines) S.deadlines={obs:[],selfEval:[],criteria:[],diagnosis:[]};
       if(!S.groups) S.groups=['Grupa 1','Grupa 2'];
       saveLocal(S);
@@ -254,6 +255,7 @@ let S = load() || {
   checkinLog:{},
   safetyNotes:[],
   calendar:{}, // 'YYYY-MM-DD_Grupa X' -> [{id,topic,actType,actDesc,sig}]
+  photoConsent:{}, // childId -> {facebook:bool, app:bool, social:bool, posters:bool}
   deadlines:{
     obs:[],        // [{id, label, date, repeat, groupTarget}]
     selfEval:[],   // [{id, label, date, repeat}]
@@ -548,7 +550,7 @@ function renderTopbar(){
 function renderBottomNav(){
   const nav=el('div',{class:'bottom-nav'});
   const tabs=[['home','🏠','Start'],['children','👶','Dzieci'],['daily','📅','Dziennik'],['calendar','📆','Kalendarz'],['terminy','📅','Terminy']];
-  if(isAdmin()){tabs.push(['staff','👩','Pracownicy'],['admin','⚙️','Admin']);}
+  if(isAdmin()){tabs.push(['photos','📸','Zdjęcia'],['staff','👩','Pracownicy'],['admin','⚙️','Admin']);}
   tabs.forEach(([id,icon,label])=>{
     const unread=id==='admin'?S.notifications.filter(n=>!n.seen).length:0;
     const b=el('button',{class:'nav-item'+(currentTab===id?' active':'')});
@@ -565,6 +567,7 @@ function renderMainTab(main){
   else if(currentTab==='daily') renderDaily(main);
   else if(currentTab==='calendar') renderCalendar(main);
   else if(currentTab==='terminy') renderTerminy(main);
+  else if(currentTab==='photos'&&isAdmin()) renderPhotoConsent(main);
   else if(currentTab==='staff'&&isAdmin()) renderStaff(main);
   else if(currentTab==='admin'&&isAdmin()) renderAdmin(main);
 }
@@ -762,13 +765,13 @@ function renderChildInfo(main, child){
   let form={...child};
   const card=el('div',{class:'card'});
   card.appendChild(el('div',{style:'font-weight:800;font-size:15px;color:var(--p);margin-bottom:14px'},'📋 Karta Informacyjna Dziecka'));
-  const fields=[['name','Imię i nazwisko'],['dob','Data urodzenia','date'],['pesel','PESEL'],['address','Adres zamieszkania'],['motherName','Imię i nazwisko matki'],['motherPhone','Telefon matki','tel'],['fatherName','Imię i nazwisko ojca'],['fatherPhone','Telefon ojca','tel'],['allergies','Alergie'],['chronicDiseases','Choroby przewlekłe'],['permanentMeds','Stałe leki']];
-  fields.forEach(([key,label,type])=>{
-    card.appendChild(inp(label,form[key]||'',(v)=>form[key]=v,{type:type||'text'}));
+  const fields=[['name','Imię i nazwisko'],['dob','Data urodzenia','date'],['pesel','PESEL']];
+  fields.forEach(function(f){
+    const key=f[0], label=f[1], type=f[2];
+    card.appendChild(inp(label,form[key]||'',function(v){form[key]=v;},{type:type||'text'}));
   });
-  card.appendChild(textarea('Dodatkowe informacje',form.extraInfo,(v)=>form.extraInfo=v));
   const sb=btn('💾 Zapisz kartę','btn-p',()=>{
-    setState(s=>({...s,children:s.children.map(c=>c.id===child.id?{...form}:c)}));
+    setState(s=>({...s,children:s.children.map(c=>c.id===child.id?{...c,name:form.name,dob:form.dob,pesel:form.pesel}:c)}));
     logChange('Zaktualizowano kartę: '+child.name);
     showToast('Karta zapisana');render();
   });
@@ -2012,6 +2015,77 @@ function renderCalendar(main){
   }
 }
 
+
+// ── ZGODY NA PUBLIKACJĘ ZDJĘĆ ──────────────────────────────────────────────────
+const CONSENT_TYPES = [
+  {key:'facebook', label:'Prywatna grupa na Facebooku', icon:'👥'},
+  {key:'app',      label:'Aplikacja',                    icon:'📱'},
+  {key:'social',   label:'Media społecznościowe',        icon:'🌐'},
+  {key:'posters',  label:'Plakaty, ulotki',              icon:'🖼️'},
+];
+
+function renderPhotoConsent(main){
+  main.appendChild(el('div',{class:'section-title'},'📸 Zgody na publikację zdjęć'));
+  main.appendChild(el('div',{style:'font-size:13px;color:var(--lt);margin-bottom:16px'},
+    'Zaznacz zgody udzielone przez rodziców dla każdego dziecka. Edycja dostępna tylko dla dyrektora.'));
+
+  const groups = ['Grupa 1','Grupa 2'];
+
+  groups.forEach(function(grp){
+    const grpChildren = S.children.filter(function(c){return c.group===grp;});
+
+    const hdr=el('div',{style:
+      'display:flex;align-items:center;justify-content:space-between;'+
+      'background:var(--p);color:#fff;border-radius:14px;padding:10px 16px;margin-bottom:10px'});
+    hdr.innerHTML='<div style="font-weight:900;font-size:15px">'+grp+'</div>'+
+      '<div style="font-size:13px;font-weight:700;opacity:.85">'+grpChildren.length+' dzieci</div>';
+    main.appendChild(hdr);
+
+    // Table-like card list
+    grpChildren.forEach(function(c){
+      const consent = (S.photoConsent && S.photoConsent[c.id]) || {};
+      const card = el('div',{class:'card',style:'padding:14px'});
+
+      const head = el('div',{style:'display:flex;align-items:center;gap:10px;margin-bottom:10px'});
+      const av = el('div',{class:'ch-av',style:'background:'+childColor(c.id)+';width:36px;height:36px;font-size:13px'}, initials(c.name));
+      const name = el('div',{style:'font-weight:800;font-size:14px;flex:1'}, c.name);
+      head.appendChild(av); head.appendChild(name);
+      card.appendChild(head);
+
+      const grid = el('div',{style:'display:grid;grid-template-columns:1fr 1fr;gap:8px'});
+      CONSENT_TYPES.forEach(function(ct){
+        const checked = !!consent[ct.key];
+        const lbl = el('label',{style:
+          'display:flex;align-items:center;gap:8px;cursor:pointer;'+
+          'background:'+(checked?'var(--g-light)':'#FFFAF7')+';'+
+          'border:2px solid '+(checked?'var(--g)':'var(--br)')+';'+
+          'border-radius:10px;padding:8px 10px;font-size:12px;font-weight:700;transition:.15s'});
+        const cb = el('input',{type:'checkbox'});
+        cb.style.width='18px'; cb.style.height='18px'; cb.style.accentColor='var(--g)'; cb.style.flexShrink='0';
+        cb.checked = checked;
+        cb.onchange=function(){
+          setState(function(s){
+            const pc = {...(s.photoConsent||{})};
+            const current = {...(pc[c.id]||{})};
+            current[ct.key] = cb.checked;
+            pc[c.id] = current;
+            return {...s, photoConsent: pc};
+          });
+          logChange((cb.checked?'Zgoda':'Wycofano zgodę')+' na zdjęcia ('+ct.label+'): '+c.name);
+          render();
+        };
+        lbl.appendChild(cb);
+        lbl.appendChild(el('span',{}, ct.icon+' '+ct.label));
+        grid.appendChild(lbl);
+      });
+      card.appendChild(grid);
+      main.appendChild(card);
+    });
+
+    main.appendChild(el('div',{style:'height:10px'}));
+  });
+}
+
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 function showLoadingScreen(){
   document.getElementById('app').innerHTML =
@@ -2041,6 +2115,8 @@ async function boot(){
         if(!S.pickupLog) S.pickupLog={};
         if(!S.childNotes) S.childNotes={};
         if(!S.calendar) S.calendar={};
+      if(!S.photoConsent) S.photoConsent={};
+        if(!S.photoConsent) S.photoConsent={};
         if(!S.deadlines) S.deadlines={obs:[],selfEval:[],criteria:[],diagnosis:[]};
         if(!S.groups) S.groups=['Grupa 1','Grupa 2'];
         const builtInIds=INIT_USERS.map(function(u){return u.id;});

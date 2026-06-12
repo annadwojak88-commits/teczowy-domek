@@ -201,7 +201,7 @@ async function loadFromSupabase(){
   if(!sb) return null;
   try{
     const {data, error} = await sb.from('app_state').select('data').eq('id','main').single();
-    if(error){ console.error('Supabase load error:', error); return null; }
+    if(error){ console.error('Supabase load error:', JSON.stringify(error), 'message:', error.message, 'details:', error.details, 'hint:', error.hint); return null; }
     return (data && data.data && Object.keys(data.data).length) ? data.data : null;
   }catch(e){ console.error(e); return null; }
 }
@@ -778,7 +778,7 @@ function renderChildInfo(main, child){
 }
 
 // ── OBS TAB ───────────────────────────────────────────────────────────────────
-let obsFormActive=false, obsFormData={};
+let obsFormActive=false, obsFormData={}, obsEditId=null;
 function renderChildObs(main, child){
   if(obsFormActive){renderObsForm(main,child);return;}
   const nb=btn('➕ Nowa obserwacja','btn-p',()=>{
@@ -796,11 +796,30 @@ function renderChildObs(main, child){
     const total=ag?ag.sections.reduce((a,s)=>a+s.items.length,0):0;
     const card=el('div',{class:'card'});
     const header=el('div',{style:'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'});
-    header.innerHTML='<div><div style="font-weight:800">Obserwacja '+(obs.length-i)+'</div><div style="font-size:12px;color:var(--lt)">'+o.date+' · '+(ag?ag.label:'')+'</div></div>';
-    const right=el('div',{style:'display:flex;align-items:center;gap:10px'});
+    header.innerHTML='<div><div style="font-weight:800">Obserwacja '+(obs.length-i)+'</div><div style="font-size:12px;color:var(--lt)">'+o.date+' · '+(ag?ag.label:'')+(o.schoolYear?' · rok szk. '+o.schoolYear:'')+'</div></div>';
+    const right=el('div',{style:'display:flex;align-items:center;gap:8px'});
     right.innerHTML='<div style="text-align:right"><div style="font-size:12px;color:var(--lt)">Wypełniono</div><div style="font-weight:800;color:var(--p)">'+filled+'/'+total+'</div></div>';
-    const pb=btn('🖨️ Drukuj','btn-pr',()=>printObs(child,o));
+    const pb=btn('🖨️','btn-pr',()=>printObs(child,o));
+    const eb=btn('✏️','btn-o btn-sm',()=>{
+      obsFormData={...o};
+      obsFormActive=true;
+      obsEditId=o.id;
+      render();
+    });
+    const db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:700;cursor:pointer'},'🗑️');
+    db.onclick=()=>{
+      confirmDelete('Usunąć tę obserwację?',function(){
+        setState(function(s){
+          return {...s, observations:{...s.observations, [child.id]: (s.observations[child.id]||[]).filter(function(x){return x.id!==o.id;})}};
+        });
+        logChange('Usunięto obserwację: '+child.name);
+        showToast('Obserwacja usunięta');
+        render();
+      });
+    };
     right.appendChild(pb);
+    right.appendChild(eb);
+    right.appendChild(db);
     header.appendChild(right);
     card.appendChild(header);
     if(o.notes)card.appendChild(el('div',{style:'font-size:12px;color:var(--lt);font-style:italic'},'"'+o.notes+'"'));
@@ -810,7 +829,7 @@ function renderChildObs(main, child){
 
 function renderObsForm(main, child){
   const back=el('button',{class:'back-btn'},'← Wróć do listy');
-  back.onclick=()=>{obsFormActive=false;render();};
+  back.onclick=()=>{obsFormActive=false;obsEditId=null;render();};
   main.appendChild(back);
   const card=el('div',{class:'card'});
   const ag=OBS_DATA[obsFormData.ageGroup];
@@ -841,13 +860,25 @@ function renderObsForm(main, child){
   card.appendChild(textarea('Uwagi',obsFormData.notes,(v)=>obsFormData.notes=v));
   const row=el('div',{class:'btn-row'});
   row.appendChild(btn('💾 Zapisz obserwację','btn-p',()=>{
-    const newObs={id:uid(),...obsFormData};
-    setState(s=>({...s,observations:{...s.observations,[child.id]:[newObs,...(s.observations[child.id]||[])]}}));
-    logChange('Obserwacja dla '+child.name);
-    showToast('Obserwacja zapisana');
-    obsFormActive=false;render();
+    if(obsEditId){
+      // editing existing observation
+      setState(function(s){
+        const list = (s.observations[child.id]||[]).map(function(o){
+          return o.id===obsEditId ? {...o, ...obsFormData, id:obsEditId} : o;
+        });
+        return {...s, observations:{...s.observations, [child.id]: list}};
+      });
+      logChange('Edycja obserwacji: '+child.name);
+      showToast('Obserwacja zaktualizowana');
+    } else {
+      const newObs={id:uid(),...obsFormData,schoolYear:getSchoolYearLabel()};
+      setState(s=>({...s,observations:{...s.observations,[child.id]:[newObs,...(s.observations[child.id]||[])]}}));
+      logChange('Obserwacja dla '+child.name);
+      showToast('Obserwacja zapisana');
+    }
+    obsFormActive=false; obsEditId=null; render();
   }));
-  row.appendChild(btn('Anuluj','btn-o',()=>{obsFormActive=false;render();}));
+  row.appendChild(btn('Anuluj','btn-o',()=>{obsFormActive=false;obsEditId=null;render();}));
   card.appendChild(row);
   main.appendChild(card);
 }

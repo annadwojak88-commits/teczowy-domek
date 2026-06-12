@@ -547,7 +547,7 @@ function renderTopbar(){
 
 function renderBottomNav(){
   const nav=el('div',{class:'bottom-nav'});
-  const tabs=[['home','🏠','Start'],['children','👶','Dzieci'],['daily','📅','Dziennik'],['calendar','📆','Kalendarz'],['terminy','📅','Terminy'],['procedures','🩺','Procedury']];
+  const tabs=[['home','🏠','Start'],['children','👶','Dzieci'],['daily','📅','Dziennik'],['calendar','📆','Kalendarz'],['terminy','📅','Terminy']];
   if(isAdmin()){tabs.push(['staff','👩','Pracownicy'],['admin','⚙️','Admin']);}
   tabs.forEach(([id,icon,label])=>{
     const unread=id==='admin'?S.notifications.filter(n=>!n.seen).length:0;
@@ -565,7 +565,6 @@ function renderMainTab(main){
   else if(currentTab==='daily') renderDaily(main);
   else if(currentTab==='calendar') renderCalendar(main);
   else if(currentTab==='terminy') renderTerminy(main);
-  else if(currentTab==='procedures') renderProcedures(main);
   else if(currentTab==='staff'&&isAdmin()) renderStaff(main);
   else if(currentTab==='admin'&&isAdmin()) renderAdmin(main);
 }
@@ -832,28 +831,18 @@ function renderObsForm(main, child){
   back.onclick=()=>{obsFormActive=false;obsEditId=null;render();};
   main.appendChild(back);
   const card=el('div',{class:'card'});
-
-  const schoolYr=getSchoolYearLabel();
-  const sepMonths=child.dob?getAgeMonthsAtSep(child.dob):null;
-  const ageAtSepTxt=sepMonths!==null
-    ? ('Sugerowany wiek na 1.09.'+schoolYr.split('/')[0]+': '+(sepMonths<12?sepMonths+' m-c':(Math.floor(sepMonths/12)+' l. '+(sepMonths%12)+' m-c')))
-    : 'Brak daty urodzenia — wybierz ręcznie';
-
   card.appendChild(el('div',{style:'font-weight:800;font-size:15px;color:var(--p);margin-bottom:4px'}, obsEditId ? '✏️ Edycja obserwacji' : '👁️ Nowa obserwacja'));
 
   // ── Wybór kategorii wiekowej arkusza (1 z 3) ─────────────────────────────
   const agSel = el('div',{style:'margin-bottom:16px'});
-  agSel.appendChild(el('div',{class:'fl'},'Kategoria wiekowa arkusza'));
-  agSel.appendChild(el('div',{style:'font-size:11px;color:var(--lt);margin-bottom:8px'}, ageAtSepTxt));
+  agSel.appendChild(el('div',{class:'fl'},'Wybierz kategorię wiekową arkusza'));
   const agBtns = el('div',{style:'display:flex;flex-direction:column;gap:8px'});
   Object.entries(OBS_DATA).forEach(function(entry){
     const key=entry[0], val=entry[1];
-    const isAuto = key===getAgeGroup(child.dob);
     const isSel = obsFormData.ageGroup===key;
     const b = el('button',{class:'user-btn'+(isSel?' sel':''),style:'padding:10px 14px'});
     b.innerHTML =
       '<div style="flex:1"><div style="font-weight:700;font-size:13px">'+val.label+
-      (isAuto?' <span style="background:#FFF0E6;color:var(--p);font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700">sugerowany</span>':'')+
       '</div><div style="font-size:11px;color:var(--lt);margin-top:2px">'+val.sections.length+' obszarów · '+
       val.sections.reduce(function(a,s){return a+s.items.length;},0)+' cech</div></div>'+
       (isSel?'<span style="color:var(--p);font-size:18px">✓</span>':'');
@@ -1588,44 +1577,6 @@ function printNote(child, e){
   );
 }
 
-// ── PROCEDURES (Procedury zdrowotne) ─────────────────────────────────────────
-const PROCEDURES = [
-  {id:'fever',icon:'🌡️',name:'Gorączka',color:'#E8526A',steps:['Zmierz temperaturę ciałomierzem','Jeśli >37.5°C — odizoluj dziecko od grupy','Powiadom kierownika/dyrektora','Skontaktuj się z rodzicami — wezwij do odbioru','Sporządź wpis w rejestrze zdrowotnym','Do czasu odbioru zapewnij dziecku spokój i nawodnienie','Wypełnij Powiadomienie o konieczności odbioru']},
-  {id:'accident',icon:'🤕',name:'Wypadek / uraz',color:'#F4A94E',steps:['Sprawdź bezpieczeństwo miejsca zdarzenia','Wyprowadź pozostałe dzieci ze strefy zagrożenia','Oceń stan dziecka — nie przemieszczaj przy podejrzeniu złamania','Wezwij pomoc (kierownik, pielęgniarka)','Przy zagrożeniu życia — dzwoń 112','Powiadom rodziców','Sporządź Protokół Powypadkowy','Wypełnij Rejestr wypadków']},
-  {id:'infectious',icon:'🦠',name:'Choroba zakaźna',color:'#A855F7',steps:['Odizoluj dziecko z objawami od grupy','Powiadom kierownika','Skontaktuj się z rodzicami — wezwij do natychmiastowego odbioru','Zdezynfekuj powierzchnie w sali','Obserwuj pozostałe dzieci pod kątem objawów','Przy potwierdzeniu choroby zakaźnej — powiadom Sanepid (decyzja dyrektora)','Sporządź wpis w rejestrze zdrowotnym']},
-  {id:'headlice',icon:'🪳',name:'Wszawica',color:'#52C97B',steps:['Ostrożnie poinformuj rodziców dziecka (dyskretnie, pisemnie)','Poinformuj rodziców całej grupy o stwierdzonej wszawicy (bez podawania nazwiska)','Zalecaj regularne sprawdzanie głów dzieci w domu','Dziecko może wrócić do żłobka po przeprowadzeniu kuracji','Sprawdź głowy innych dzieci w grupie','Zdezynfekuj grzebienie, ręczniki, pościel']},
-  {id:'abuse',icon:'⚠️',name:'Podejrzenie krzywdzenia',color:'#E8526A',steps:['Zachowaj spokój — nie konfrontuj rodzica przy dziecku','Zapewnij dziecku poczucie bezpieczeństwa','Niezwłocznie poinformuj kierownika/dyrektora','Sporządź szczegółową Notatkę służbową (zakładka Notatki przy dziecku)','Dyrektor organizuje spotkanie z rodzicami i psychologiem','Przy poważnym zagrożeniu — dyrektor zgłasza do prokuratury/policji lub sądu rodzinnego','Monitoruj sytuację i dobrostań dziecka']},
-  {id:'choking',icon:'🫁',name:'Zadławienie',color:'#E8526A',steps:['Zachęć dziecko do kaszlu jeśli jest przytomne','Przy nieskutecznym kaszlu: 5 uderzeń w plecy (między łopatkami)','Następnie 5 uciśnięć nadbrzusza (chwyt Heimlicha — ostrożnie u małych dzieci)','Naprzemiennie powtarzaj aż do wypadnięcia ciała obcego','Przy utracie przytomności — RKO i natychmiast dzwoń 112','Powiadom rodziców i sporządź wpis']},
-  {id:'conjunctivitis',icon:'👁️',name:'Zapalenie spojówek',color:'#5B8DEF',steps:['Odizoluj dziecko od grupy','Nie pocieraj oczu — pilnuj by dziecko tego nie robiło','Powiadom rodziców — dziecko powinno wrócić do domu','Dziecko może wrócić po wyleczeniu z zaświadczeniem lekarskim','Zdezynfekuj powierzchnie których dziecko dotykało','Przypominaj pozostałym dzieciom o myciu rąk']},
-  {id:'allergy',icon:'🚨',name:'Reakcja alergiczna',color:'#E8526A',steps:['Sprawdź kartę dziecka — czy ma zdiagnozowaną alergię i leki','Przy łagodnych objawach (wysypka) — powiadom rodziców','Przy objawach anafilaksji (obrzęk twarzy, trudności z oddychaniem) — dzwoń 112 natychmiast','Jeśli dziecko ma EpiPen i masz upoważnienie — podaj','Połóż dziecko w pozycji leżącej, nogi uniesione (chyba że problemy z oddychaniem)','Zostań przy dziecku do przyjazdu pomocy','Sporządź wpis w rejestrze zdrowotnym']},
-];
-
-let openProcedure=null;
-function renderProcedures(main){
-  main.appendChild(el('div',{class:'section-title'},'🩺 Procedury zdrowotne i bezpieczeństwa'));
-  main.appendChild(el('div',{style:'font-size:13px;color:var(--lt);margin-bottom:16px'},'Naciśnij procedurę aby zobaczyć kroki postępowania'));
-  PROCEDURES.forEach(proc=>{
-    const card=el('div',{class:'card',style:'cursor:pointer;border-left:4px solid '+proc.color});
-    const header=el('div',{style:'display:flex;align-items:center;gap:12px'});
-    header.innerHTML='<span style="font-size:28px">'+proc.icon+'</span>'+
-      '<div style="flex:1"><div style="font-weight:800;font-size:15px">'+proc.name+'</div>'+
-      '<div style="font-size:12px;color:var(--lt)">'+proc.steps.length+' kroków postępowania</div></div>'+
-      '<span style="font-size:18px;color:var(--lt)">'+(openProcedure===proc.id?'▲':'▼')+'</span>';
-    card.appendChild(header);
-    if(openProcedure===proc.id){
-      const body=el('div',{style:'margin-top:14px;border-top:1px solid var(--br);padding-top:12px'});
-      proc.steps.forEach((step,i)=>{
-        const row=el('div',{style:'display:flex;gap:10px;margin-bottom:10px;align-items:flex-start'});
-        row.appendChild(el('div',{style:'width:24px;height:24px;border-radius:50%;background:'+proc.color+';color:white;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0'},String(i+1)));
-        row.appendChild(el('div',{style:'font-size:13px;padding-top:3px'},step));
-        body.appendChild(row);
-      });
-      card.appendChild(body);
-    }
-    card.onclick=()=>{openProcedure=openProcedure===proc.id?null:proc.id;render();};
-    main.appendChild(card);
-  });
-}
 
 // ── WEEKLY THEME in daily log ────────────────────────────────────────────────
 

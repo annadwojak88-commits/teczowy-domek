@@ -903,9 +903,18 @@ function renderChildHealth(main, child){
   const log=S.healthLog[child.id]||[];
   if(!log.length){main.appendChild(el('div',{class:'empty'},'<div class="empty-icon">✅</div><div>Brak wpisów zdrowotnych</div>'));return;}
   log.forEach(e=>{
-    const d=el('div',{class:'log-entry'});
+    const wrap=el('div',{style:'position:relative;margin-bottom:8px'});
+    const d=el('div',{class:'log-entry',style:'margin-bottom:0'});
     d.innerHTML='<div class="le-date">'+e.date+' · '+e.sig+'</div><div class="le-desc">'+e.desc+'</div>'+(e.action?'<div class="le-act">→ '+e.action+'</div>':'');
-    main.appendChild(d);
+    const db=el('button',{style:'position:absolute;top:8px;right:8px;background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:6px;padding:3px 7px;font-size:11px;font-weight:700;cursor:pointer'},'🗑️');
+    db.onclick=function(){
+      confirmDelete('Usunąć ten wpis zdrowotny?',function(){
+        setState(function(s){return {...s,healthLog:{...s.healthLog,[child.id]:(s.healthLog[child.id]||[]).filter(function(x){return x.id!==e.id;})}};});
+        showToast('Wpis usunięty');render();
+      });
+    };
+    wrap.appendChild(d); wrap.appendChild(db);
+    main.appendChild(wrap);
   });
 }
 
@@ -929,9 +938,18 @@ function renderChildBehavior(main, child){
   const log=S.behaviorLog[child.id]||[];
   if(!log.length){main.appendChild(el('div',{class:'empty'},'<div class="empty-icon">🤝</div><div>Brak wpisów</div>'));return;}
   log.forEach(e=>{
-    const d=el('div',{class:'log-entry',style:'border-left-color:var(--r)'});
+    const wrap=el('div',{style:'position:relative;margin-bottom:8px'});
+    const d=el('div',{class:'log-entry',style:'border-left-color:var(--r);margin-bottom:0'});
     d.innerHTML='<div class="le-date">'+e.date+' · '+e.sig+'</div><div class="le-desc">'+e.desc+'</div>'+(e.reaction?'<div class="le-act">→ '+e.reaction+'</div>':'');
-    main.appendChild(d);
+    const db=el('button',{style:'position:absolute;top:8px;right:8px;background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:6px;padding:3px 7px;font-size:11px;font-weight:700;cursor:pointer'},'🗑️');
+    db.onclick=function(){
+      confirmDelete('Usunąć ten wpis o zachowaniu?',function(){
+        setState(function(s){return {...s,behaviorLog:{...s.behaviorLog,[child.id]:(s.behaviorLog[child.id]||[]).filter(function(x){return x.id!==e.id;})}};});
+        showToast('Wpis usunięty');render();
+      });
+    };
+    wrap.appendChild(d); wrap.appendChild(db);
+    main.appendChild(wrap);
   });
 }
 
@@ -950,10 +968,23 @@ function renderChildAccident(main, child){
   acc.forEach((a,i)=>{
     const card=el('div',{class:'card',style:'border-left:4px solid var(--r)'});
     const header=el('div',{style:'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px'});
-    header.innerHTML='<div><div style="font-weight:800">Wypadek '+(acc.length-i)+'</div><div style="font-size:12px;color:var(--lt)">'+a.date+' '+a.time+'</div></div>';
-    header.appendChild(btn('🖨️ Drukuj','btn-pr',()=>printAccident(child,a)));
+    const titleDiv=el('div',{});
+    titleDiv.innerHTML='<div style="font-weight:800">Wypadek '+(acc.length-i)+'</div><div style="font-size:12px;color:var(--lt)">'+a.date+' '+a.time+'</div>';
+    header.appendChild(titleDiv);
+    const btnRow=el('div',{style:'display:flex;gap:6px;align-items:center'});
+    btnRow.appendChild(btn('🖨️','btn-pr',function(){printAccident(child,a);}));
+    const db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:700;cursor:pointer'},'🗑️');
+    db.onclick=function(){
+      confirmDelete('Usunąć ten protokół powypadkowy?',function(){
+        setState(function(s){return {...s,accidents:{...s.accidents,[child.id]:(s.accidents[child.id]||[]).filter(function(x){return x.id!==a.id;})}};});
+        logChange('Usunięto protokół powypadkowy: '+child.name);
+        showToast('Protokół usunięty');render();
+      });
+    };
+    btnRow.appendChild(db);
+    header.appendChild(btnRow);
     card.appendChild(header);
-    card.innerHTML+=('<div style="font-size:13px"><strong>Urazy:</strong> '+a.injuryType+'</div>');
+    card.appendChild(el('div',{style:'font-size:13px'},'<strong>Urazy:</strong> '+a.injuryType));
     main.appendChild(card);
   });
 }

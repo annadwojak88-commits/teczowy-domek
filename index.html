@@ -172,8 +172,9 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 let _saveTimeout = null;
-let _isSaving = false;
 let _isOnline = !!sb;
+let _lastLocalSaveAt = 0;
+let _lastLocalSaveStr = '';
 
 function load(){try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):null}catch{return null}}
 function saveLocal(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch{}}
@@ -184,11 +185,12 @@ function save(d){
   if(!sb) return;
   clearTimeout(_saveTimeout);
   _saveTimeout = setTimeout(()=>{
-    _isSaving = true;
     const payload = {...d, currentUser: null}; // don't sync login session
+    const payloadStr = JSON.stringify(payload);
+    _lastLocalSaveAt = Date.now();
+    _lastLocalSaveStr = payloadStr;
     sb.from('app_state').update({data: payload, updated_at: new Date().toISOString(), updated_by: (d.currentUser&&d.currentUser.name)||'unknown'}).eq('id','main')
       .then(({error})=>{
-        _isSaving = false;
         if(error){ console.error('Supabase save error:', error); }
       });
   }, 600);
@@ -209,11 +211,29 @@ function subscribeRealtime(){
   if(!sb) return;
   sb.channel('app_state_changes')
     .on('postgres_changes', {event:'UPDATE', schema:'public', table:'app_state', filter:'id=eq.main'}, (payload)=>{
-      if(_isSaving) return; // ignore our own update echo
       const remote = payload.new && payload.new.data;
       if(!remote) return;
+      const remoteStr = JSON.stringify(remote);
+      // Ignore echo of our own recent save (within 5s and same content)
+      if(remoteStr === _lastLocalSaveStr && (Date.now() - _lastLocalSaveAt) < 5000){
+        return;
+      }
       const currentUser = S.currentUser; // preserve local session
       S = {...remote, currentUser};
+      if(!S.observations) S.observations={};
+      if(!S.healthLog) S.healthLog={};
+      if(!S.behaviorLog) S.behaviorLog={};
+      if(!S.accidents) S.accidents={};
+      if(!S.dailyLogs) S.dailyLogs={};
+      if(!S.employeeEvals) S.employeeEvals={};
+      if(!S.employeeDiagnosis) S.employeeDiagnosis={};
+      if(!S.notifications) S.notifications=[];
+      if(!S.changeLog) S.changeLog=[];
+      if(!S.pickupLog) S.pickupLog={};
+      if(!S.childNotes) S.childNotes={};
+      if(!S.calendar) S.calendar={};
+      if(!S.deadlines) S.deadlines={obs:[],selfEval:[],criteria:[],diagnosis:[]};
+      if(!S.groups) S.groups=['Grupa 1','Grupa 2'];
       saveLocal(S);
       render();
     })
@@ -1959,8 +1979,20 @@ async function boot(){
       if(remote){
         // Merge remote data with local users/children sync logic
         S = remote;
+        if(!S.observations) S.observations={};
+        if(!S.healthLog) S.healthLog={};
+        if(!S.behaviorLog) S.behaviorLog={};
+        if(!S.accidents) S.accidents={};
+        if(!S.dailyLogs) S.dailyLogs={};
+        if(!S.employeeEvals) S.employeeEvals={};
+        if(!S.employeeDiagnosis) S.employeeDiagnosis={};
+        if(!S.notifications) S.notifications=[];
+        if(!S.changeLog) S.changeLog=[];
+        if(!S.pickupLog) S.pickupLog={};
+        if(!S.childNotes) S.childNotes={};
         if(!S.calendar) S.calendar={};
         if(!S.deadlines) S.deadlines={obs:[],selfEval:[],criteria:[],diagnosis:[]};
+        if(!S.groups) S.groups=['Grupa 1','Grupa 2'];
         const builtInIds=INIT_USERS.map(function(u){return u.id;});
         const extraUsers=(S.users||[]).filter(function(u){return !builtInIds.includes(u.id);});
         S.users=[...INIT_USERS,...extraUsers];

@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
 <title>Tęczowy Domek</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -165,8 +166,59 @@ const LEVEL_KEY = {'Wysoki':'W','Przeciętny':'P','Niski':'N','Brak cechy':'B'};
 const KEY = 'teczowy_v2';
 
 // ── STORAGE ───────────────────────────────────────────────────────────────────
+// ── SUPABASE CONNECTION ──────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://sufryvbsblbhwyaqbhcd.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1ZnJ5dmJzYmxiaHd5YXFiaGNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNDg2NjYsImV4cCI6MjA5NjgyNDY2Nn0.KN_fpqVmLjkluejgEI2ft5kD7wKTyn_VLQtSmd22nqU';
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+let _saveTimeout = null;
+let _isSaving = false;
+let _isOnline = !!sb;
+
 function load(){try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):null}catch{return null}}
-function save(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch{}}
+function saveLocal(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch{}}
+
+// Save to Supabase (debounced to avoid too many writes)
+function save(d){
+  saveLocal(d);
+  if(!sb) return;
+  clearTimeout(_saveTimeout);
+  _saveTimeout = setTimeout(()=>{
+    _isSaving = true;
+    const payload = {...d, currentUser: null}; // don't sync login session
+    sb.from('app_state').update({data: payload, updated_at: new Date().toISOString(), updated_by: (d.currentUser&&d.currentUser.name)||'unknown'}).eq('id','main')
+      .then(({error})=>{
+        _isSaving = false;
+        if(error){ console.error('Supabase save error:', error); }
+      });
+  }, 600);
+}
+
+// Load initial data from Supabase, merge with local
+async function loadFromSupabase(){
+  if(!sb) return null;
+  try{
+    const {data, error} = await sb.from('app_state').select('data').eq('id','main').single();
+    if(error){ console.error('Supabase load error:', error); return null; }
+    return (data && data.data && Object.keys(data.data).length) ? data.data : null;
+  }catch(e){ console.error(e); return null; }
+}
+
+// Subscribe to realtime changes from other devices
+function subscribeRealtime(){
+  if(!sb) return;
+  sb.channel('app_state_changes')
+    .on('postgres_changes', {event:'UPDATE', schema:'public', table:'app_state', filter:'id=eq.main'}, (payload)=>{
+      if(_isSaving) return; // ignore our own update echo
+      const remote = payload.new && payload.new.data;
+      if(!remote) return;
+      const currentUser = S.currentUser; // preserve local session
+      S = {...remote, currentUser};
+      saveLocal(S);
+      render();
+    })
+    .subscribe();
+}
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let S = load() || {
@@ -455,6 +507,12 @@ function renderTopbar(){
   const logoW=el('div',{class:'topbar-logo'});
   logoW.innerHTML='<img src="'+LOGO+'" alt="Teczowy Domek"/>';
   bar.appendChild(logoW);
+  // Online/sync status indicator
+  const statusDot=el('div',{
+    title: _isOnline ? 'Połączono z bazą danych' : 'Tylko lokalnie (brak synchronizacji)',
+    style:'width:9px;height:9px;border-radius:50%;background:'+(_isOnline?'var(--g)':'var(--lt)')+';margin-left:6px;flex-shrink:0'
+  });
+  logoW.appendChild(statusDot);
   const u=S.currentUser;
   const right=el('div',{class:'topbar-right'});
   const info=el('div',{class:'user-info'});
@@ -1885,7 +1943,54 @@ function renderCalendar(main){
 }
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
-render();
+function showLoadingScreen(){
+  document.getElementById('app').innerHTML =
+    '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(160deg,#FFF0E6,#FDF6F0,#F5EDF5)">'+
+    '<img src="'+LOGO+'" style="height:80px;width:auto;margin-bottom:16px"/>'+
+    '<div style="font-weight:800;color:var(--p);font-size:15px">Łączenie z bazą danych...</div>'+
+    '</div>';
+}
+
+async function boot(){
+  showLoadingScreen();
+  if(sb){
+    try{
+      const remote = await loadFromSupabase();
+      if(remote){
+        // Merge remote data with local users/children sync logic
+        S = remote;
+        if(!S.calendar) S.calendar={};
+        if(!S.deadlines) S.deadlines={obs:[],selfEval:[],criteria:[],diagnosis:[]};
+        const builtInIds=INIT_USERS.map(function(u){return u.id;});
+        const extraUsers=(S.users||[]).filter(function(u){return !builtInIds.includes(u.id);});
+        S.users=[...INIT_USERS,...extraUsers];
+        S.children = (S.children||[]).map(function(existing){
+          const fresh = INIT_CHILDREN.find(function(c){return c.id===existing.id;});
+          if(!fresh) return existing;
+          return {...existing,
+            pesel: fresh.pesel || existing.pesel,
+            dob: fresh.dob || existing.dob,
+            motherName: fresh.motherName || existing.motherName,
+            motherPhone: fresh.motherPhone || existing.motherPhone,
+            fatherName: fresh.fatherName || existing.fatherName,
+            fatherPhone: fresh.fatherPhone || existing.fatherPhone,
+          };
+        });
+        const existingIds = S.children.map(function(c){return c.id;});
+        INIT_CHILDREN.forEach(function(c){ if(!existingIds.includes(c.id)) S.children.push(c); });
+        S.currentUser = null;
+        saveLocal(S);
+      } else {
+        // No remote data yet — push our local/initial state to Supabase
+        save(S);
+      }
+      subscribeRealtime();
+    }catch(e){ console.error('Boot error:', e); }
+  }
+  render();
+}
+
+boot();
 </script>
 <div id="del-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;padding:24px">
   <div style="background:#fff;border-radius:20px;padding:24px;max-width:320px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.2)">

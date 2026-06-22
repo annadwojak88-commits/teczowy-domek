@@ -579,16 +579,7 @@ function renderHome(main){
   const ab=btn('➕ Dodaj nowe dziecko','btn-p full',()=>{
     const name=prompt('Imię i nazwisko dziecka:');if(!name)return;
     const group=isAdmin()?prompt('Grupa (Grupa 1 / Grupa 2):'):S.currentUser.group;
-    const pesel=prompt('PESEL (opcjonalnie, Enter aby pominąć):')||'';
-    const dob=(function(){
-      if(!pesel||pesel.length<6)return'';
-      try{
-        var yy=parseInt(pesel.slice(0,2)),mm=parseInt(pesel.slice(2,4)),dd=parseInt(pesel.slice(4,6));
-        if(mm>=21&&mm<=32){mm-=20;return (2000+yy)+'-'+String(mm).padStart(2,'0')+'-'+String(dd).padStart(2,'0');}
-        if(mm>=1&&mm<=12){return (1900+yy)+'-'+String(mm).padStart(2,'0')+'-'+String(dd).padStart(2,'0');}
-      }catch(e){}return'';
-    })();
-    const child={id:uid(),name:name.trim(),dob:dob,group:group||S.currentUser.group,pesel:pesel,address:'',motherName:'',motherPhone:'',fatherName:'',fatherPhone:'',allergies:'',chronicDiseases:'',permanentMeds:'',extraInfo:''};
+    const child={id:uid(),name:name.trim(),dob:'',group:group||S.currentUser.group,pesel:'',address:'',motherName:'',motherPhone:'',fatherName:'',fatherPhone:'',allergies:'',chronicDiseases:'',permanentMeds:'',extraInfo:''};
     setState(s=>({...s,children:[...s.children,child]}));
     logChange('Dodano dziecko: '+name);
     showToast('Dodano dziecko');render();
@@ -658,7 +649,7 @@ function renderChildren(main){
     if(!grpChildren.length){
       main.appendChild(el('div',{style:'font-size:13px;color:var(--lt);padding:10px'},'Brak dzieci w tej grupie'));
     } else {
-      grpChildren.slice().sort(function(a,b){return a.name.localeCompare(b.name,'pl');}).forEach(function(c){main.appendChild(makeChildCard(c));});
+      grpChildren.forEach(function(c){main.appendChild(makeChildCard(c));});
     }
     main.appendChild(el('div',{style:'height:10px'}));
   });

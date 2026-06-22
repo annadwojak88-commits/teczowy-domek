@@ -2079,8 +2079,16 @@ async function boot(){
         const bi=INIT_USERS.map(function(u){return u.id;});
         const ex=(S.users||[]).filter(function(u){return !bi.includes(u.id);});
         S.users=[...INIT_USERS,...ex];
-        S.children=(S.children||[]).map(function(e){const f=INIT_CHILDREN.find(function(c){return c.id===e.id;});if(!f)return e;return{...e,pesel:f.pesel||e.pesel,dob:f.dob||e.dob,motherName:f.motherName||e.motherName,motherPhone:f.motherPhone||e.motherPhone,fatherName:f.fatherName||e.fatherName,fatherPhone:f.fatherPhone||e.fatherPhone};});
-        const eids=S.children.map(function(c){return c.id;});INIT_CHILDREN.forEach(function(c){if(!eids.includes(c.id))S.children.push(c);});
+        // Only enrich existing children with PESEL/DOB data - do NOT re-add deleted ones
+        S.children=(S.children||[]).map(function(e){
+          const f=INIT_CHILDREN.find(function(c){return c.id===e.id;});
+          if(!f)return e;
+          return{...e,pesel:f.pesel||e.pesel,dob:f.dob||e.dob,
+            motherName:f.motherName||e.motherName,motherPhone:f.motherPhone||e.motherPhone,
+            fatherName:f.fatherName||e.fatherName,fatherPhone:f.fatherPhone||e.fatherPhone};
+        });
+        // Only populate from INIT_CHILDREN if database is completely empty
+        if(S.children.length===0){ S.children=[...INIT_CHILDREN]; }
         S.currentUser=null;saveLocal(S);
       }else{save(S);}
       try{subscribeRealtime();}catch(e){console.error('Realtime error:',e);}

@@ -219,7 +219,11 @@ let S = load() || {
 };
 const builtInIds=INIT_USERS.map(u=>u.id);const extraUsers=(S.users||[]).filter(u=>!builtInIds.includes(u.id));S.users=[...INIT_USERS,...extraUsers];
 S.children=(S.children||[]).map(function(ex){const fr=INIT_CHILDREN.find(function(c){return c.id===ex.id;});if(!fr)return ex;return {...ex,pesel:fr.pesel||ex.pesel,dob:fr.dob||ex.dob,motherName:fr.motherName||ex.motherName,motherPhone:fr.motherPhone||ex.motherPhone,fatherName:fr.fatherName||ex.fatherName,fatherPhone:fr.fatherPhone||ex.fatherPhone};});
-const exIds=S.children.map(function(c){return c.id;});INIT_CHILDREN.forEach(function(c){if(!exIds.includes(c.id))S.children.push(c);});
+// Do NOT re-add children from INIT_CHILDREN - respect deletions from Supabase
+// Only add children if S.children is completely empty (first run)
+if(S.children.length===0){
+  S.children=[...INIT_CHILDREN];
+}
 S.currentUser = null;
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -499,6 +503,82 @@ function renderMainTab(main){
 function renderHome(main){
   main.appendChild(el('div',{class:'rainbow-bar'}));
   main.appendChild(el('div',{class:'section-title'},'👋 Dzień dobry, '+S.currentUser.name.split(' ')[0]+'!'));
+
+  // ── Powiadomienia urodzinowe ───────────────────────────────────────────────
+  (function(){
+    const now = new Date();
+    const mm = now.getMonth()+1;
+    const dd = now.getDate();
+    const todayKids = S.children.filter(function(c){
+      if(!c.dob) return false;
+      const p=c.dob.split('-');
+      return parseInt(p[1])===mm && parseInt(p[2])===dd;
+    });
+    const soonKids = S.children.filter(function(c){
+      if(!c.dob) return false;
+      const p=c.dob.split('-');
+      const bday=new Date(now.getFullYear(),parseInt(p[1])-1,parseInt(p[2]));
+      const diff=Math.ceil((bday-now)/(1000*60*60*24));
+      return diff>0 && diff<=7;
+    });
+    // Always show birthday card
+    const bdayCard=el('div',{class:'card',style:
+      todayKids.length>0
+        ?'background:linear-gradient(135deg,#FFF0E6,#FFF8E1);border-color:var(--a);border-width:2px'
+        :'border-color:var(--br)'
+    });
+    const bdayRow=el('div',{style:'display:flex;align-items:center;gap:10px'});
+    bdayRow.innerHTML='<div style="font-size:32px">'+(todayKids.length>0?'🎉':soonKids.length>0?'🎈':'🎂')+'</div>';
+    const bdayInfo=el('div',{style:'flex:1'});
+
+    if(todayKids.length>0){
+      bdayInfo.innerHTML='<div style="font-weight:900;font-size:15px;color:var(--a)">Dziś urodziny! 🎉</div>'+
+        '<div style="font-size:13px;font-weight:700;margin-top:2px">'+
+        todayKids.map(function(c){
+          const age=now.getFullYear()-parseInt(c.dob.split('-')[0]);
+          return c.name+' — kończy '+age+' lat'+(age===1?'o':age<5?'a':'');
+        }).join('<br>')+'</div>';
+    } else if(soonKids.length>0){
+      bdayInfo.innerHTML='<div style="font-weight:800;font-size:14px;color:var(--p)">Najbliższe urodziny</div>'+
+        '<div style="font-size:13px;margin-top:2px">'+
+        soonKids.map(function(c){
+          const p=c.dob.split('-');
+          const bday=new Date(now.getFullYear(),parseInt(p[1])-1,parseInt(p[2]));
+          const diff=Math.ceil((bday-now)/(1000*60*60*24));
+          const age=now.getFullYear()-parseInt(p[0]);
+          return c.name+' — za '+diff+' dni ('+age+' lat'+(age===1?'o':age<5?'a':'')+')';
+        }).join('<br>')+'</div>';
+    } else {
+      // Find next birthday in next 30 days
+      const nextKids=S.children.filter(function(c){
+        if(!c.dob)return false;
+        const p=c.dob.split('-');
+        const bday=new Date(now.getFullYear(),parseInt(p[1])-1,parseInt(p[2]));
+        const diff=Math.ceil((bday-now)/(1000*60*60*24));
+        return diff>0 && diff<=30;
+      }).sort(function(a,b){
+        const pa=a.dob.split('-'), pb=b.dob.split('-');
+        const ba=new Date(now.getFullYear(),parseInt(pa[1])-1,parseInt(pa[2]));
+        const bb=new Date(now.getFullYear(),parseInt(pb[1])-1,parseInt(pb[2]));
+        return ba-bb;
+      });
+      if(nextKids.length>0){
+        const c0=nextKids[0];
+        const p=c0.dob.split('-');
+        const bday=new Date(now.getFullYear(),parseInt(p[1])-1,parseInt(p[2]));
+        const diff=Math.ceil((bday-now)/(1000*60*60*24));
+        bdayInfo.innerHTML='<div style="font-weight:800;font-size:14px;color:var(--lt)">Urodziny w tym miesiącu</div>'+
+          '<div style="font-size:13px;margin-top:2px;color:var(--txt)">Najbliższe: '+c0.name+' — za '+diff+' dni</div>';
+      } else {
+        bdayInfo.innerHTML='<div style="font-weight:800;font-size:14px;color:var(--lt)">Urodziny</div>'+
+          '<div style="font-size:13px;color:var(--lt);margin-top:2px">Brak urodzin w najbliższym czasie</div>';
+      }
+    }
+    bdayRow.appendChild(bdayInfo);
+    bdayCard.appendChild(bdayRow);
+    main.appendChild(bdayCard);
+  })();
+
   renderBulletinBoard(main);
   const vc=visibleChildren();
   // Build deadline alerts
@@ -577,12 +657,7 @@ function renderHome(main){
   const qc=el('div',{class:'card'});
   qc.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:12px'},'📋 Szybkie akcje'));
   const ab=btn('➕ Dodaj nowe dziecko','btn-p full',()=>{
-    const name=prompt('Imię i nazwisko dziecka:');if(!name)return;
-    const group=isAdmin()?prompt('Grupa (Grupa 1 / Grupa 2):'):S.currentUser.group;
-    const child={id:uid(),name:name.trim(),dob:'',group:group||S.currentUser.group,pesel:'',address:'',motherName:'',motherPhone:'',fatherName:'',fatherPhone:'',allergies:'',chronicDiseases:'',permanentMeds:'',extraInfo:''};
-    setState(s=>({...s,children:[...s.children,child]}));
-    logChange('Dodano dziecko: '+name);
-    showToast('Dodano dziecko');render();
+    addChildFormActive=true; currentTab='children'; render();
   });
   const rb=btn('🔔 Wyślij przypomnienie o obserwacjach','btn-o full',()=>{
     const n={id:uid(),text:'Czas uzupełnić obserwacje dzieci!',date:today(),seen:false};
@@ -625,8 +700,75 @@ function renderHome(main){
 
 // ── CHILDREN LIST ─────────────────────────────────────────────────────────────
 let childFilter='Wszystkie', childSearch='';
+let addChildFormActive=false;
 function renderChildren(main){
   main.appendChild(el('div',{class:'section-title'},'👶 Dzieci'));
+
+  // ── Add child form ─────────────────────────────────────────────────────────
+  if(addChildFormActive){
+    const fcard=el('div',{class:'card',style:'border-color:var(--g);border-width:2px'});
+    fcard.appendChild(el('div',{style:'font-weight:800;font-size:15px;color:var(--g);margin-bottom:14px'},'➕ Nowe dziecko'));
+    let nf={name:'',pesel:'',dob:'',group:isAdmin()?'Grupa 1':S.currentUser.group};
+    fcard.appendChild(inp('Imię i nazwisko',nf.name,function(v){nf.name=v;}));
+
+    // Group select (admin only)
+    if(isAdmin()){
+      const gw=el('div',{class:'fg'});
+      gw.appendChild(el('label',{class:'fl'},'Grupa'));
+      const gs=el('select',{class:'fs'});
+      ['Grupa 1','Grupa 2'].forEach(function(g){
+        const o=el('option',{value:g},g); gs.appendChild(o);
+      });
+      gs.onchange=function(){nf.group=gs.value;};
+      gw.appendChild(gs); fcard.appendChild(gw);
+    }
+
+    fcard.appendChild(inp('PESEL',nf.pesel,function(v){
+      nf.pesel=v;
+      // Auto-fill DOB from PESEL
+      if(v.length>=6){
+        try{
+          var yy=parseInt(v.slice(0,2)),mm=parseInt(v.slice(2,4)),dd=parseInt(v.slice(4,6));
+          var yr,rm=mm;
+          if(mm>=21&&mm<=32){rm=mm-20;yr=2000+yy;}
+          else if(mm>=1&&mm<=12){rm=mm;yr=1900+yy;}
+          if(yr){
+            var dobStr=yr+'-'+String(rm).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
+            nf.dob=dobStr;
+            // Update DOB field visually
+            var dobInp=fcard.querySelector('[data-dob]');
+            if(dobInp) dobInp.value=dobStr;
+          }
+        }catch(e){}
+      }
+    },{placeholder:'11 cyfr — data urodzenia wypełni się automatycznie'}));
+
+    const dobWrap=el('div',{class:'fg'});
+    dobWrap.appendChild(el('label',{class:'fl'},'Data urodzenia'));
+    const dobInp=el('input',{class:'fi',type:'date'});
+    dobInp.setAttribute('data-dob','1');
+    dobInp.value=nf.dob;
+    dobInp.oninput=function(){nf.dob=dobInp.value;};
+    dobWrap.appendChild(dobInp);
+    fcard.appendChild(dobWrap);
+
+    const fbrow=el('div',{class:'btn-row'});
+    fbrow.appendChild(btn('💾 Dodaj dziecko','btn-p',function(){
+      if(!nf.name.trim()){showToast('Wpisz imię i nazwisko');return;}
+      const child={id:uid(),name:nf.name.trim(),dob:nf.dob,group:nf.group,
+        pesel:nf.pesel,address:'',motherName:'',motherPhone:'',
+        fatherName:'',fatherPhone:'',allergies:'',chronicDiseases:'',permanentMeds:'',extraInfo:''};
+      setState(function(s){return{...s,children:[...s.children,child]};});
+      logChange('Dodano dziecko: '+nf.name);
+      showToast('Dodano: '+nf.name);
+      addChildFormActive=false; render();
+    }));
+    fbrow.appendChild(btn('Anuluj','btn-o',function(){addChildFormActive=false;render();}));
+    fcard.appendChild(fbrow);
+    main.appendChild(fcard);
+    return;
+  }
+
   const groups = isAdmin() ? ['Grupa 1','Grupa 2'] : [S.currentUser.group];
 
   function makeChildCard(c){
@@ -649,7 +791,7 @@ function renderChildren(main){
     if(!grpChildren.length){
       main.appendChild(el('div',{style:'font-size:13px;color:var(--lt);padding:10px'},'Brak dzieci w tej grupie'));
     } else {
-      grpChildren.forEach(function(c){main.appendChild(makeChildCard(c));});
+      grpChildren.slice().sort(function(a,b){return a.name.localeCompare(b.name,'pl');}).forEach(function(c){main.appendChild(makeChildCard(c));});
     }
     main.appendChild(el('div',{style:'height:10px'}));
   });
@@ -700,7 +842,7 @@ function renderChildInfo(main, child){
 }
 
 // ── OBS TAB ───────────────────────────────────────────────────────────────────
-let obsFormActive=false, obsFormData={}, obsEditId=null;
+let obsFormActive=false, obsFormData={}, obsEditId=null, obsYearFilter='all';
 function renderChildObs(main, child){
   if(obsFormActive){renderObsForm(main,child);return;}
   const nb=btn('➕ Nowa obserwacja','btn-p',()=>{

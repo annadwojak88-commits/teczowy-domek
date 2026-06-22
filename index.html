@@ -507,7 +507,8 @@ function renderTopbar(){
 function renderBottomNav(){
   const nav=el('div',{class:'bottom-nav'});
   const tabs=[['home','🏠','Start'],['children','👶','Dzieci'],['daily','📅','Dziennik'],['birthdays','🎂','Urodziny'],['terminy','📅','Terminy'],['photos','📸','Zdjęcia']];
-  if(isAdmin()){tabs.push(['occupancy','📊','Obłożenie'],['staff','👩','Pracownicy'],['admin','⚙️','Admin']);}
+  tabs.push(['occupancy','📊','Obłożenie']);
+  if(isAdmin()){tabs.push(['staff','👩','Pracownicy'],['admin','⚙️','Admin']);}
   tabs.forEach(([id,icon,label])=>{
     const unread=id==='admin'?S.notifications.filter(n=>!n.seen).length:0;
     const b=el('button',{class:'nav-item'+(currentTab===id?' active':'')});
@@ -524,7 +525,7 @@ function renderMainTab(main){
   else if(currentTab==='daily') renderDaily(main);
   else if(currentTab==='birthdays') renderBirthdays(main);
   else if(currentTab==='photos') renderPhotoConsent(main);
-  else if(currentTab==='occupancy'&&isAdmin()) renderOccupancy(main);
+  else if(currentTab==='occupancy') renderOccupancy(main);
   else if(currentTab==='terminy') renderTerminy(main);
   else if(currentTab==='staff'&&isAdmin()) renderStaff(main);
   else if(currentTab==='admin'&&isAdmin()) renderAdmin(main);
@@ -715,14 +716,13 @@ function renderChildView(main, child){
   header.appendChild(av);header.appendChild(info);
   main.appendChild(header);
   const tabs=el('div',{class:'tabs'});
-  [['karta','📋 Karta'],['historia','📅 Historia'],['obs','👁️ Obserwacje'],['health','🏥 Zdrowie'],['behavior','⚡ Zachowanie'],['accident','🚨 Wypadki'],['pickup','📞 Odbiór'],['notes','📝 Notatki']].forEach(([id,lbl])=>{
+  [['karta','📋 Karta'],['obs','👁️ Obserwacje'],['health','🏥 Zdrowie'],['behavior','⚡ Zachowanie'],['accident','🚨 Wypadki'],['pickup','📞 Odbiór'],['notes','📝 Notatki']].forEach(([id,lbl])=>{
     const t=el('button',{class:'tab'+(childTab===id?' active':'')},lbl);
     t.onclick=()=>{childTab=id;render();};
     tabs.appendChild(t);
   });
   main.appendChild(tabs);
   if(childTab==='karta') renderChildInfo(main,child);
-  else if(childTab==='historia') renderChildHistory(main,child);
   else if(childTab==='obs') renderChildObs(main,child);
   else if(childTab==='health') renderChildHealth(main,child);
   else if(childTab==='behavior') renderChildBehavior(main,child);
@@ -740,8 +740,21 @@ function renderChildInfo(main,child){
   card.appendChild(inp('Imię i nazwisko',form.name||'',function(v){form.name=v;}));
   card.appendChild(inp('Data urodzenia',form.dob||'',function(v){form.dob=v;},{type:'date'}));
   card.appendChild(inp('PESEL',form.pesel||'',function(v){form.pesel=v;}));
+  // Date range - admin only
+  if(isAdmin()){
+    var sep=el('div',{style:'font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;border-top:1px solid var(--br);padding-top:10px'});
+    sep.textContent='📅 Okres uczęszczania';
+    card.appendChild(sep);
+    card.appendChild(inp('Data przyjęcia (od)',form.joinDate||'',function(v){form.joinDate=v;},{type:'date'}));
+    card.appendChild(inp('Data zakończenia (do)',form.endDate||'',function(v){form.endDate=v;},{type:'date',placeholder:'pozostaw puste jeśli dziecko jest aktywne'}));
+  }
   card.appendChild(btn('💾 Zapisz kartę','btn-p',function(){
-    setState({children:S.children.map(function(c){return c.id===child.id?Object.assign({},c,{name:form.name,dob:form.dob,pesel:form.pesel}):c;})});
+    setState({children:S.children.map(function(c){
+      return c.id===child.id?Object.assign({},c,{
+        name:form.name,dob:form.dob,pesel:form.pesel,
+        joinDate:form.joinDate||'',endDate:form.endDate||''
+      }):c;
+    })});
     logChange('Zaktualizowano kartę: '+child.name);showToast('Karta zapisana');render();
   }));
   main.appendChild(card);
@@ -1183,7 +1196,7 @@ function renderAdmin(main){
 }
 
 function renderAdminChildren(main){
-  let newChild={name:'',group:'Grupa 1',dob:''};
+  let newChild={name:'',group:'Grupa 1',dob:'',pesel:'',joinDate:'',endDate:''};
   // Export buttons
   const expRow=el('div',{style:'display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap'});
   expRow.appendChild(btn('📥 Eksport lista dzieci','btn-pr',()=>exportChildren()));
@@ -1193,14 +1206,55 @@ function renderAdminChildren(main){
 
   const addCard=el('div',{class:'card',style:'border-color:var(--g);border-width:2px'});
   addCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;color:var(--g);margin-bottom:12px'},'➕ Dodaj nowe dziecko'));
-  addCard.appendChild(inp('Imię i nazwisko',newChild.name,(v)=>newChild.name=v,{placeholder:'np. Jan Kowalski'}));
-  addCard.appendChild(select('Grupa',newChild.group,['Grupa 1','Grupa 2'],(v)=>newChild.group=v));
-  addCard.appendChild(inp('Data urodzenia (opcjonalnie)',newChild.dob,(v)=>newChild.dob=v,{type:'date'}));
-  addCard.appendChild(btn('➕ Dodaj dziecko','btn-g full',()=>{
+  addCard.appendChild(inp('Imię i nazwisko',newChild.name,function(v){newChild.name=v;},{placeholder:'np. Jan Kowalski'}));
+  addCard.appendChild(select('Grupa',newChild.group,['Grupa 1','Grupa 2'],function(v){newChild.group=v;}));
+  // PESEL with auto-fill DOB
+  var peselWrap=el('div',{class:'fg'});
+  peselWrap.appendChild(el('label',{class:'fl'},'PESEL'));
+  var peselInp=el('input',{class:'fi',placeholder:'11 cyfr — data urodzenia wypełni się automatycznie'});
+  peselInp.value=newChild.pesel||'';
+  peselInp.oninput=function(){
+    newChild.pesel=peselInp.value;
+    if(peselInp.value.length>=6){
+      try{
+        var p=peselInp.value,yy=parseInt(p.slice(0,2)),mm=parseInt(p.slice(2,4)),dd=parseInt(p.slice(4,6)),yr,rm=mm;
+        if(mm>=21&&mm<=32){rm=mm-20;yr=2000+yy;}else if(mm>=1&&mm<=12){rm=mm;yr=1900+yy;}
+        if(yr){newChild.dob=yr+'-'+String(rm).padStart(2,'0')+'-'+String(dd).padStart(2,'0');dobInp.value=newChild.dob;}
+      }catch(e){}
+    }
+  };
+  peselWrap.appendChild(peselInp);
+  addCard.appendChild(peselWrap);
+  // DOB
+  var dobWrap=el('div',{class:'fg'});
+  dobWrap.appendChild(el('label',{class:'fl'},'Data urodzenia'));
+  var dobInp=el('input',{class:'fi',type:'date'});
+  dobInp.value=newChild.dob||'';
+  dobInp.oninput=function(){newChild.dob=dobInp.value;};
+  dobWrap.appendChild(dobInp);
+  addCard.appendChild(dobWrap);
+  // Date range
+  var sep=el('div',{style:'font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;margin:8px 0 4px;border-top:1px solid var(--br);padding-top:10px'});
+  sep.textContent='📅 Okres uczęszczania do żłobka';
+  addCard.appendChild(sep);
+  addCard.appendChild(inp('Data od',newChild.joinDate||'',function(v){newChild.joinDate=v;},{type:'date'}));
+  addCard.appendChild(inp('Data do (opcjonalnie)',newChild.endDate||'',function(v){newChild.endDate=v;},{type:'date'}));
+  addCard.appendChild(btn('➕ Dodaj dziecko','btn-g full',function(){
     if(!newChild.name.trim())return;
-    const c={id:uid(),name:newChild.name.trim(),dob:newChild.dob,group:newChild.group,pesel:'',address:'',motherName:'',motherPhone:'',fatherName:'',fatherPhone:'',allergies:'',chronicDiseases:'',permanentMeds:'',extraInfo:''};
+    var c={id:uid(),name:newChild.name.trim(),dob:newChild.dob,group:newChild.group,
+      pesel:newChild.pesel||'',joinDate:newChild.joinDate||'',endDate:newChild.endDate||'',
+      address:'',motherName:'',motherPhone:'',fatherName:'',fatherPhone:'',
+      allergies:'',chronicDiseases:'',permanentMeds:'',extraInfo:''};
     setState({children:S.children.concat([c])});
-    logChange('Dodano dziecko: '+c.name);showToast('Dodano: '+c.name);render();
+    if(c.joinDate){
+      setLog('childHistory',c.id,[{id:uid(),date:c.joinDate,type:'przyjęcie',group:c.group,note:'',author:S.currentUser.name}]);
+    }
+    if(c.endDate){
+      setLog('childHistory',c.id,(S.childHistory[c.id]||[]).concat([{id:uid(),date:c.endDate,type:'odejście',group:c.group,note:'',author:S.currentUser.name}]));
+    }
+    logChange('Dodano dziecko: '+c.name);showToast('Dodano: '+c.name);
+    newChild={name:'',group:newChild.group,dob:'',pesel:'',joinDate:'',endDate:''};
+    render();
   }));
   main.appendChild(addCard);
   // stats
@@ -1663,177 +1717,6 @@ function renderPhotoConsent(main){
 }
 
 
-// ── HISTORIA POBYTU DZIECKA ───────────────────────────────────────────────────
-function renderChildHistory(main, child){
-  var history = (S.childHistory && S.childHistory[child.id]) || [];
-
-  // Header with current status
-  var statusCard = el('div',{class:'card',style:'border-left:4px solid var(--p)'});
-  var joinDate = history.length ? history[0].date : child.joinDate || '';
-  var lastEvent = history.length ? history[history.length-1] : null;
-  var isActive = !lastEvent || lastEvent.type !== 'odejście';
-
-  statusCard.innerHTML =
-    '<div style="font-weight:800;font-size:14px;margin-bottom:10px">📍 Aktualny status</div>'+
-    '<div style="display:flex;gap:16px;flex-wrap:wrap">'+
-    '<div><div style="font-size:11px;color:var(--lt);text-transform:uppercase;font-weight:700">Grupa</div>'+
-    '<div style="font-weight:800;font-size:15px;color:var(--p)">'+child.group+'</div></div>'+
-    '<div><div style="font-size:11px;color:var(--lt);text-transform:uppercase;font-weight:700">Status</div>'+
-    '<div style="font-weight:800;font-size:15px;color:'+(isActive?'var(--g)':'var(--r)')+'">'+
-    (isActive?'✅ Aktywny':'❌ Nieaktywny')+'</div></div>'+
-    (joinDate?'<div><div style="font-size:11px;color:var(--lt);text-transform:uppercase;font-weight:700">Data przyjęcia</div>'+
-    '<div style="font-weight:800;font-size:15px">'+joinDate+'</div></div>':'')+
-    '</div>';
-  main.appendChild(statusCard);
-
-  // Add event button (admin only)
-  if(isAdmin()){
-    var addCard = el('div',{class:'card',style:'border-color:var(--g);border-width:2px'});
-    addCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;color:var(--g);margin-bottom:12px'},'➕ Dodaj zdarzenie'));
-
-    var form = {date:today(), type:'przyjęcie', group:child.group, note:''};
-
-    // Date
-    addCard.appendChild(inp('Data',form.date,function(v){form.date=v;},{type:'date'}));
-
-    // Event type
-    var typeWrap = el('div',{class:'fg'});
-    typeWrap.appendChild(el('label',{class:'fl'},'Rodzaj zdarzenia'));
-    var typeRow = el('div',{style:'display:flex;gap:8px;flex-wrap:wrap;margin-top:4px'});
-    ['przyjęcie','zmiana grupy','odejście','powrót','inne'].forEach(function(t){
-      var b = el('button',{class:'tab'+(form.type===t?' active':''),style:'font-size:12px;padding:5px 12px'},t);
-      b.onclick = function(){
-        form.type = t;
-        // re-render type buttons
-        Array.from(typeRow.children).forEach(function(btn){
-          btn.className = 'tab'+(btn.textContent===t?' active':'');
-        });
-        // show/hide group field
-        groupWrap.style.display = (t==='zmiana grupy')?'block':'none';
-      };
-      typeRow.appendChild(b);
-    });
-    typeWrap.appendChild(typeRow);
-    addCard.appendChild(typeWrap);
-
-    // Group (only for 'zmiana grupy')
-    var groupWrap = el('div',{class:'fg',style:'display:none'});
-    groupWrap.appendChild(el('label',{class:'fl'},'Nowa grupa'));
-    var groupSel = el('select',{class:'fs'});
-    ['Grupa 1','Grupa 2'].forEach(function(g){
-      var o = el('option',{value:g},g);
-      if(g===form.group) o.selected=true;
-      groupSel.appendChild(o);
-    });
-    groupSel.onchange = function(){form.group=groupSel.value;};
-    groupWrap.appendChild(groupSel);
-    addCard.appendChild(groupWrap);
-
-    addCard.appendChild(inp('Notatka (opcjonalnie)',form.note,function(v){form.note=v;},{placeholder:'np. powód odejścia, nowa placówka...'}));
-
-    var savBtn = btn('💾 Zapisz zdarzenie','btn-p',function(){
-      if(!form.date){showToast('Wybierz datę');return;}
-      var entry = {
-        id: uid(),
-        date: form.date,
-        type: form.type,
-        group: form.type==='zmiana grupy' ? form.group : child.group,
-        note: form.note,
-        author: S.currentUser.name
-      };
-      // If changing group - update child's group too
-      if(form.type==='zmiana grupy'){
-        setState({children:S.children.map(function(c){
-          return c.id===child.id ? Object.assign({},c,{group:form.group}) : c;
-        })});
-      }
-      setLog('childHistory', child.id, (S.childHistory[child.id]||[]).concat([entry]));
-      logChange('Historia ('+child.name+'): '+form.type+' '+form.date);
-      showToast('Zapisano zdarzenie');
-      render();
-    });
-    addCard.appendChild(savBtn);
-    main.appendChild(addCard);
-  }
-
-  // Timeline
-  var timelineCard = el('div',{class:'card'});
-  timelineCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:14px'},'📅 Historia zdarzeń'));
-
-  if(!history.length){
-    timelineCard.appendChild(el('div',{style:'font-size:13px;color:var(--lt);text-align:center;padding:16px'},'Brak zapisanych zdarzeń'));
-  } else {
-    var sorted = history.slice().sort(function(a,b){return b.date.localeCompare(a.date);});
-    sorted.forEach(function(ev){
-      var colors = {
-        'przyjęcie':'var(--g)',
-        'zmiana grupy':'var(--p)',
-        'odejście':'var(--r)',
-        'powrót':'var(--a)',
-        'inne':'var(--lt)'
-      };
-      var icons = {
-        'przyjęcie':'🟢',
-        'zmiana grupy':'🔄',
-        'odejście':'🔴',
-        'powrót':'🔵',
-        'inne':'⚪'
-      };
-      var color = colors[ev.type] || 'var(--lt)';
-      var icon = icons[ev.type] || '⚪';
-
-      var row = el('div',{style:'display:flex;gap:12px;margin-bottom:14px;position:relative'});
-      // dot + line
-      var dotCol = el('div',{style:'display:flex;flex-direction:column;align-items:center;flex-shrink:0'});
-      var dot = el('div',{style:'width:32px;height:32px;border-radius:50%;background:'+color+';display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;flex-shrink:0;font-weight:800'});
-      dot.textContent = icon;
-      dotCol.appendChild(dot);
-      row.appendChild(dotCol);
-
-      var info = el('div',{style:'flex:1;padding-top:4px'});
-      var top = el('div',{style:'display:flex;justify-content:space-between;align-items:flex-start'});
-      var title = el('div',{style:'font-weight:800;font-size:14px;color:'+color});
-      title.textContent = ev.type.charAt(0).toUpperCase()+ev.type.slice(1);
-      var dateEl = el('div',{style:'font-size:12px;color:var(--lt)'});
-      dateEl.textContent = ev.date;
-      top.appendChild(title);top.appendChild(dateEl);
-      info.appendChild(top);
-
-      if(ev.group){
-        var groupEl = el('div',{style:'font-size:12px;color:var(--txt);margin-top:2px'});
-        groupEl.textContent = '📍 '+ev.group;
-        info.appendChild(groupEl);
-      }
-      if(ev.note){
-        var noteEl = el('div',{style:'font-size:12px;color:var(--lt);margin-top:2px;font-style:italic'});
-        noteEl.textContent = ev.note;
-        info.appendChild(noteEl);
-      }
-      var authorEl = el('div',{style:'font-size:11px;color:var(--lt);margin-top:4px'});
-      authorEl.textContent = '👩 '+ev.author;
-      info.appendChild(authorEl);
-
-      // Delete button (admin only)
-      if(isAdmin()){
-        var db = el('button',{style:'background:none;border:none;color:var(--lt);cursor:pointer;font-size:16px;padding:0;margin-top:4px;flex-shrink:0'});
-        db.textContent='×';
-        db.onclick = function(){
-          confirmDelete('Usunąć to zdarzenie?',function(){
-            setLog('childHistory',child.id,(S.childHistory[child.id]||[]).filter(function(e){return e.id!==ev.id;}));
-            showToast('Usunięto');render();
-          });
-        };
-        row.appendChild(db);
-      }
-
-      row.appendChild(info);
-      timelineCard.appendChild(row);
-    });
-  }
-  main.appendChild(timelineCard);
-}
-
-
 // ── OBŁOŻENIE / FREKWENCJA ────────────────────────────────────────────────────
 function renderOccupancy(main){
   main.appendChild(el('div',{class:'section-title'},'📊 Obłożenie żłobka'));
@@ -1842,7 +1725,8 @@ function renderOccupancy(main){
   var MONTHS = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec',
                 'Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 
-  // Capacity settings card
+  // Capacity settings card (admin only)
+  if(isAdmin()){
   var capCard = el('div',{class:'card'});
   capCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:12px'},'⚙️ Pojemność grup'));
   var capRow = el('div',{style:'display:flex;gap:12px;flex-wrap:wrap'});
@@ -1864,6 +1748,7 @@ function renderOccupancy(main){
   });
   capCard.appendChild(capRow);
   main.appendChild(capCard);
+  }
 
   // Helper: is child active in a given month?
   function isActiveInMonth(child, year, month){
@@ -1990,6 +1875,128 @@ function renderOccupancy(main){
     detailCard.appendChild(el('div',{style:'height:10px'}));
   });
   main.appendChild(detailCard);
+}
+
+
+// ── TERMINY ───────────────────────────────────────────────────────────────────
+function renderTerminy(main){
+  main.appendChild(el('div',{class:'section-title'},'📅 Terminy formularzy'));
+  var now=new Date();
+  var TYPES=[
+    {key:'obs',label:'Obserwacje dzieci'},
+    {key:'selfEval',label:'Samoocena pracownika'},
+    {key:'criteria',label:'Ocena kryteriów'},
+    {key:'diagnosis',label:'Diagnoza obszarów'}
+  ];
+  var allDl=[];
+  TYPES.forEach(function(t){
+    ((S.deadlines&&S.deadlines[t.key])||[]).forEach(function(dl){
+      allDl.push(Object.assign({},dl,{type:t.key,typeLbl:t.label}));
+    });
+  });
+  // Filter for current user if not admin
+  var visible=allDl.filter(function(dl){
+    if(!isAdmin()&&dl.type==='obs'&&dl.groupTarget&&dl.groupTarget!==S.currentUser.group)return false;
+    return true;
+  });
+  if(!visible.length){
+    main.appendChild(el('div',{class:'card'},'Brak zaplanowanych terminów.'));
+    if(isAdmin()) renderAdminTerminy(main);
+    return;
+  }
+  // Group by status
+  var overdue=[],soon=[],upcoming=[],future=[];
+  visible.forEach(function(dl){
+    if(!dl.date)return;
+    var d=new Date(dl.date);
+    var diff=Math.ceil((d-now)/(1000*60*60*24));
+    if(diff<0) overdue.push(dl);
+    else if(diff<=7) soon.push(dl);
+    else if(diff<=30) upcoming.push(dl);
+    else future.push(dl);
+  });
+  function renderBucket(list,label,color,icon){
+    if(!list.length)return;
+    var card=el('div',{class:'card',style:'border-left:4px solid '+color});
+    card.appendChild(el('div',{style:'font-weight:800;font-size:13px;color:'+color+';margin-bottom:10px'},icon+' '+label));
+    list.forEach(function(dl){
+      var d=new Date(dl.date);
+      var diff=Math.ceil((d-now)/(1000*60*60*24));
+      var txt=diff<0?'Przekroczono o '+Math.abs(diff)+' dni':diff===0?'Dziś!':'Za '+diff+' dni';
+      var row=el('div',{style:'display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--br)'});
+      row.innerHTML='<div><div style="font-weight:700;font-size:13px">'+dl.label+'</div>'+
+        '<div style="font-size:11px;color:var(--lt)">'+dl.typeLbl+(dl.groupTarget?' · '+dl.groupTarget:'')+'</div></div>'+
+        '<div style="text-align:right"><div style="font-weight:800;font-size:12px;color:'+color+'">'+txt+'</div>'+
+        '<div style="font-size:11px;color:var(--lt)">'+dl.date+'</div></div>';
+      card.appendChild(row);
+    });
+    main.appendChild(card);
+  }
+  renderBucket(overdue,'Przekroczone','var(--r)','🔴');
+  renderBucket(soon,'Wkrótce (7 dni)','var(--a)','🟡');
+  renderBucket(upcoming,'W tym miesiącu (30 dni)','var(--p)','🔵');
+  renderBucket(future,'Przyszłe','var(--lt)','⚪');
+  if(isAdmin()) renderAdminTerminy(main);
+}
+
+function renderAdminTerminy(main){
+  var TYPES=[
+    {key:'obs',label:'Obserwacje dzieci',hasGroup:true},
+    {key:'selfEval',label:'Samoocena pracownika',hasGroup:false},
+    {key:'criteria',label:'Ocena kryteriów',hasGroup:false},
+    {key:'diagnosis',label:'Diagnoza obszarów',hasGroup:false}
+  ];
+  var adminCard=el('div',{class:'card',style:'border-color:var(--p);border-width:2px;margin-top:14px'});
+  adminCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;color:var(--p);margin-bottom:14px'},'⚙️ Zarządzaj terminami'));
+  var nf={label:'',date:'',type:'obs',groupTarget:''};
+  adminCard.appendChild(inp('Nazwa terminu',nf.label,function(v){nf.label=v;},{placeholder:'np. Obserwacje I półrocze'}));
+  adminCard.appendChild(inp('Data terminu',nf.date,function(v){nf.date=v;},{type:'date'}));
+  var typeWrap=el('div',{class:'fg'});
+  typeWrap.appendChild(el('label',{class:'fl'},'Rodzaj'));
+  var typeSel=el('select',{class:'fs'});
+  TYPES.forEach(function(t){var o=el('option',{value:t.key},t.label);typeSel.appendChild(o);});
+  typeSel.onchange=function(){nf.type=typeSel.value;};
+  typeWrap.appendChild(typeSel);adminCard.appendChild(typeWrap);
+  var grpWrap=el('div',{class:'fg'});
+  grpWrap.appendChild(el('label',{class:'fl'},'Grupa (opcjonalnie)'));
+  var grpSel=el('select',{class:'fs'});
+  [['','Obie grupy'],['Grupa 1','Grupa 1'],['Grupa 2','Grupa 2']].forEach(function(g){
+    var o=el('option',{value:g[0]},g[1]);grpSel.appendChild(o);
+  });
+  grpSel.onchange=function(){nf.groupTarget=grpSel.value;};
+  grpWrap.appendChild(grpSel);adminCard.appendChild(grpWrap);
+  adminCard.appendChild(btn('➕ Dodaj termin','btn-p',function(){
+    if(!nf.label.trim()||!nf.date){showToast('Wypełnij nazwę i datę');return;}
+    var entry={id:uid(),label:nf.label,date:nf.date,groupTarget:nf.groupTarget};
+    var nd=Object.assign({},S.deadlines||{});
+    nd[nf.type]=(nd[nf.type]||[]).concat([entry]);
+    setState({deadlines:nd});
+    logChange('Dodano termin: '+nf.label);showToast('Termin dodany');render();
+  }));
+  main.appendChild(adminCard);
+  // List existing
+  TYPES.forEach(function(type){
+    var list=(S.deadlines&&S.deadlines[type.key])||[];
+    if(!list.length)return;
+    var lCard=el('div',{class:'card',style:'margin-top:10px'});
+    lCard.appendChild(el('div',{style:'font-weight:800;font-size:13px;margin-bottom:10px'},type.label));
+    list.forEach(function(dl,i){
+      var row=el('div',{style:'display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--br)'});
+      row.innerHTML='<div><div style="font-size:13px;font-weight:700">'+dl.label+'</div>'+
+        '<div style="font-size:11px;color:var(--lt)">'+dl.date+(dl.groupTarget?' · '+dl.groupTarget:'')+'</div></div>';
+      var db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer'},'🗑️');
+      db.onclick=function(){
+        confirmDelete('Usunąć ten termin?',function(){
+          var nd=Object.assign({},S.deadlines||{});
+          nd[type.key]=(nd[type.key]||[]).filter(function(_,j){return j!==i;});
+          setState({deadlines:nd});
+          showToast('Usunięto');render();
+        });
+      };
+      row.appendChild(db);lCard.appendChild(row);
+    });
+    main.appendChild(lCard);
+  });
 }
 
 

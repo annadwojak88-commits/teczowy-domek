@@ -506,9 +506,8 @@ function renderTopbar(){
 
 function renderBottomNav(){
   const nav=el('div',{class:'bottom-nav'});
-  const tabs=[['home','🏠','Start'],['children','👶','Dzieci'],['daily','📅','Dziennik'],['birthdays','🎂','Urodziny'],['terminy','📅','Terminy']];
-  tabs.push(['photos','📸','Zdjęcia']);
-  if(isAdmin()){tabs.push(['photos','📸','Zdjęcia'],['staff','👩','Pracownicy'],['admin','⚙️','Admin']);}
+  const tabs=[['home','🏠','Start'],['children','👶','Dzieci'],['daily','📅','Dziennik'],['birthdays','🎂','Urodziny'],['terminy','📅','Terminy'],['photos','📸','Zdjęcia']];
+  if(isAdmin()){tabs.push(['occupancy','📊','Obłożenie'],['staff','👩','Pracownicy'],['admin','⚙️','Admin']);}
   tabs.forEach(([id,icon,label])=>{
     const unread=id==='admin'?S.notifications.filter(n=>!n.seen).length:0;
     const b=el('button',{class:'nav-item'+(currentTab===id?' active':'')});
@@ -525,6 +524,7 @@ function renderMainTab(main){
   else if(currentTab==='daily') renderDaily(main);
   else if(currentTab==='birthdays') renderBirthdays(main);
   else if(currentTab==='photos') renderPhotoConsent(main);
+  else if(currentTab==='occupancy'&&isAdmin()) renderOccupancy(main);
   else if(currentTab==='terminy') renderTerminy(main);
   else if(currentTab==='staff'&&isAdmin()) renderStaff(main);
   else if(currentTab==='admin'&&isAdmin()) renderAdmin(main);
@@ -1834,6 +1834,165 @@ function renderChildHistory(main, child){
 }
 
 
+// ── OBŁOŻENIE / FREKWENCJA ────────────────────────────────────────────────────
+function renderOccupancy(main){
+  main.appendChild(el('div',{class:'section-title'},'📊 Obłożenie żłobka'));
+
+  var now = new Date();
+  var MONTHS = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec',
+                'Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+
+  // Capacity settings card
+  var capCard = el('div',{class:'card'});
+  capCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:12px'},'⚙️ Pojemność grup'));
+  var capRow = el('div',{style:'display:flex;gap:12px;flex-wrap:wrap'});
+  ['Grupa 1','Grupa 2'].forEach(function(grp){
+    var cap = (S.capacity&&S.capacity[grp]) || 15;
+    var w = el('div',{style:'flex:1;min-width:120px'});
+    w.appendChild(el('div',{style:'font-size:12px;color:var(--lt);font-weight:700;margin-bottom:4px'},grp));
+    var input = el('input',{class:'fi',type:'number',style:'margin-bottom:0'});
+    input.value = cap;
+    input.min = 1; input.max = 50;
+    input.onchange = function(){
+      var newCap = Object.assign({},S.capacity||{});
+      newCap[grp] = parseInt(input.value)||cap;
+      setState({capacity:newCap});
+      render();
+    };
+    w.appendChild(input);
+    capRow.appendChild(w);
+  });
+  capCard.appendChild(capRow);
+  main.appendChild(capCard);
+
+  // Helper: is child active in a given month?
+  function isActiveInMonth(child, year, month){
+    var hist = (S.childHistory&&S.childHistory[child.id])||[];
+    // Find join date: first 'przyjęcie' or joinDate on child
+    var joinStr = child.joinDate || '';
+    var endStr = child.endDate || '';
+    // Override with history events
+    var accepts = hist.filter(function(e){return e.type==='przyjęcie'||e.type==='powrót';});
+    var leaves = hist.filter(function(e){return e.type==='odejście';});
+    if(accepts.length) joinStr = accepts.sort(function(a,b){return a.date.localeCompare(b.date);})[0].date;
+    if(leaves.length) endStr = leaves.sort(function(a,b){return b.date.localeCompare(a.date);})[0].date;
+    // If no history at all - treat as active now (legacy children)
+    if(!joinStr && !endStr && !hist.length) return true;
+    // Check if this month overlaps with [joinStr, endStr]
+    var monthStart = year+'-'+String(month).padStart(2,'0')+'-01';
+    var monthEnd = year+'-'+String(month).padStart(2,'0')+'-31';
+    if(joinStr && joinStr > monthEnd) return false;
+    if(endStr && endStr < monthStart) return false;
+    return true;
+  }
+
+  // Show 12 months (current month back 3 + forward 8)
+  var months = [];
+  for(var i=-3; i<=8; i++){
+    var d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    months.push({year:d.getFullYear(), month:d.getMonth()+1, label:MONTHS[d.getMonth()]+' '+d.getFullYear()});
+  }
+
+  // Summary stats for current month
+  var curYear = now.getFullYear(), curMonth = now.getMonth()+1;
+  var totalCap = ((S.capacity&&S.capacity['Grupa 1'])||15) + ((S.capacity&&S.capacity['Grupa 2'])||12);
+  var totalActive = S.children.filter(function(c){return isActiveInMonth(c,curYear,curMonth);}).length;
+  var totalFree = Math.max(0, totalCap - totalActive);
+
+  var summaryRow = el('div',{style:'display:flex;gap:10px;margin-bottom:18px'});
+  function statBox(num, lbl, color){
+    var b = el('div',{class:'stat-card',style:'flex:1'});
+    b.innerHTML='<div class="stat-num" style="color:'+color+'">'+num+'</div><div class="stat-lbl">'+lbl+'</div>';
+    return b;
+  }
+  summaryRow.appendChild(statBox(totalActive,'Dzieci w tym miesiącu','var(--p)'));
+  summaryRow.appendChild(statBox(totalFree,'Wolnych miejsc',totalFree>0?'var(--g)':'var(--r)'));
+  summaryRow.appendChild(statBox(totalCap,'Pojemność łącznie','var(--lt)'));
+  main.appendChild(summaryRow);
+
+  // Monthly table
+  var tableCard = el('div',{class:'card',style:'overflow-x:auto'});
+  tableCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:14px'},'📅 Obłożenie miesięczne'));
+
+  var table = el('table',{style:'width:100%;border-collapse:collapse;font-size:13px'});
+
+  // Header
+  var thead = el('thead',{});
+  var hrow = el('tr',{});
+  ['Miesiąc','Gr. 1','Gr. 2','Łącznie','Wolne'].forEach(function(h){
+    var th = el('th',{style:'padding:8px 6px;text-align:center;font-weight:800;font-size:11px;color:var(--lt);border-bottom:2px solid var(--br);white-space:nowrap'});
+    th.textContent = h;
+    if(h==='Miesiąc') th.style.textAlign='left';
+    hrow.appendChild(th);
+  });
+  thead.appendChild(hrow);
+  table.appendChild(thead);
+
+  var tbody = el('tbody',{});
+  months.forEach(function(m){
+    var isCurrent = m.year===curYear && m.month===curMonth;
+    var cap1 = (S.capacity&&S.capacity['Grupa 1'])||26;
+    var cap2 = (S.capacity&&S.capacity['Grupa 2'])||17;
+    var totalCapRow = cap1+cap2;
+    var active1 = S.children.filter(function(c){return c.group==='Grupa 1'&&isActiveInMonth(c,m.year,m.month);}).length;
+    var active2 = S.children.filter(function(c){return c.group==='Grupa 2'&&isActiveInMonth(c,m.year,m.month);}).length;
+    var activeTotal = active1+active2;
+    var free = Math.max(0, totalCapRow-activeTotal);
+    var pct = Math.round((activeTotal/totalCapRow)*100);
+    var pctColor = pct>=90?'var(--r)':pct>=70?'var(--a)':'var(--g)';
+
+    var tr = el('tr',{style:'background:'+(isCurrent?'#FFF0E6':'')});
+    function td(val, bold, color){
+      var t=el('td',{style:'padding:9px 6px;text-align:center;border-bottom:1px solid var(--br)'+(bold?';font-weight:800':'')+(color?';color:'+color:'')});
+      t.textContent=val; return t;
+    }
+    var monthTd = el('td',{style:'padding:9px 6px;border-bottom:1px solid var(--br);font-weight:'+(isCurrent?'800':'600')+(isCurrent?';color:var(--p)':'')});
+    monthTd.textContent = m.label+(isCurrent?' ◀':'');
+    tr.appendChild(monthTd);
+    tr.appendChild(td(active1+'/'+cap1, false, active1>=cap1?'var(--r)':''));
+    tr.appendChild(td(active2+'/'+cap2, false, active2>=cap2?'var(--r)':''));
+    tr.appendChild(td(activeTotal, true));
+    tr.appendChild(td(free, true, free===0?'var(--r)':free<=2?'var(--a)':'var(--g)'));
+
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  tableCard.appendChild(table);
+  main.appendChild(tableCard);
+
+  // Per-group detail for current month
+  var detailCard = el('div',{class:'card'});
+  detailCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:14px'},'👶 Dzieci w bieżącym miesiącu ('+MONTHS[curMonth-1]+')'));
+  ['Grupa 1','Grupa 2'].forEach(function(grp){
+    var cap = (S.capacity&&S.capacity[grp])||(grp==='Grupa 1'?26:17);
+    var kids = S.children.filter(function(c){return c.group===grp&&isActiveInMonth(c,curYear,curMonth);})
+      .sort(function(a,b){return a.name.localeCompare(b.name,'pl');});
+    var free = Math.max(0, cap-kids.length);
+    var grpHdr = el('div',{style:'display:flex;justify-content:space-between;align-items:center;background:var(--p);color:#fff;border-radius:10px;padding:8px 14px;margin-bottom:8px'});
+    grpHdr.innerHTML='<div style="font-weight:900">'+grp+'</div>'+
+      '<div style="font-size:13px;opacity:.9">'+kids.length+'/'+cap+' · <span style="color:'+(free===0?'#ffb3b3':'#b3ffcc')+'">'+free+' wolnych</span></div>';
+    detailCard.appendChild(grpHdr);
+    kids.forEach(function(c){
+      var row=el('div',{style:'display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--br);font-size:13px'});
+      var av=el('div',{style:'width:28px;height:28px;border-radius:50%;background:'+childColor(c.id)+';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;flex-shrink:0'});
+      av.textContent=initials(c.name);
+      row.appendChild(av);
+      row.appendChild(el('div',{style:'flex:1;font-weight:600'},c.name));
+      if(c.joinDate)row.appendChild(el('div',{style:'font-size:11px;color:var(--lt)'},'od '+c.joinDate));
+      detailCard.appendChild(row);
+    });
+    // Free slots
+    if(free>0){
+      var freeRow=el('div',{style:'padding:8px 4px;font-size:12px;color:var(--g);font-weight:700'});
+      freeRow.textContent='+ '+free+' wolne '+(free===1?'miejsce':free<5?'miejsca':'miejsc');
+      detailCard.appendChild(freeRow);
+    }
+    detailCard.appendChild(el('div',{style:'height:10px'}));
+  });
+  main.appendChild(detailCard);
+}
+
+
 // ── STATE SAFETY ─────────────────────────────────────────────────────────────
 function ensureStateFields(){
   if(!S.observations)S.observations={};
@@ -1850,6 +2009,7 @@ function ensureStateFields(){
   if(!S.childNotes)S.childNotes={};
   if(!S.photoConsent)S.photoConsent={};
   if(!S.groupNotes)S.groupNotes={};
+  if(!S.capacity)S.capacity={'Grupa 1':26,'Grupa 2':17};
   if(!S.deadlines)S.deadlines={obs:[],selfEval:[],criteria:[],diagnosis:[]};
   if(!S.groups)S.groups=['Grupa 1','Grupa 2'];
 }

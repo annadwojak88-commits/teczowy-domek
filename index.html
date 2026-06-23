@@ -377,51 +377,21 @@ function showToast(msg){
   _toastTimer=setTimeout(()=>t&&t.remove(),2500);
 }
 
-function el(tag,attrs={},inner=''){
-  const e=document.createElement(tag);
-  Object.entries(attrs).forEach(([k,v])=>{
+function el(tag,attrs,inner){
+  attrs=attrs||{};inner=inner||'';
+  var e=document.createElement(tag);
+  var keys=Object.keys(attrs);
+  for(var i=0;i<keys.length;i++){
+    var k=keys[i],v=attrs[k];
     if(k==='class')e.className=v;
-    else if(k.startsWith('on'))e[k]=v;
+    else if(k.substr(0,2)==='on')e[k]=v;
     else e.setAttribute(k,v);
-  });
+  }
   if(typeof inner==='string')e.innerHTML=inner;
-  else if(Array.isArray(inner))inner.forEach(c=>{if(c)e.appendChild(typeof c==='string'?document.createTextNode(c):c)});
-  else if(inner instanceof Node)e.appendChild(inner);
+  else if(inner&&inner.nodeType)e.appendChild(inner);
   return e;
 }
 
-function inp(label, val, onChange, opts={}){
-  const d=el('div',{class:'fg'});
-  if(label)d.appendChild(el('label',{class:'fl'},label));
-  const i=el('input',{class:'fi',type:opts.type||'text',placeholder:opts.placeholder||'',value:val});
-  if(opts.max)i.setAttribute('maxlength',opts.max);
-  if(opts.readonly)i.readOnly=true;
-  i.oninput=()=>onChange(i.value);
-  d.appendChild(i);
-  return d;
-}
-function textarea(label,val,onChange,opts={}){
-  const d=el('div',{class:'fg'});
-  if(label)d.appendChild(el('label',{class:'fl'},label));
-  const t=el('textarea',{class:'fta',placeholder:opts.placeholder||''});
-  t.value=val||'';
-  t.oninput=()=>onChange(t.value);
-  d.appendChild(t);
-  return d;
-}
-function select(label,val,options,onChange){
-  const d=el('div',{class:'fg'});
-  if(label)d.appendChild(el('label',{class:'fl'},label));
-  const s=el('select',{class:'fs'});
-  options.forEach(o=>{
-    const op=el('option',{value:o.v||o},o.l||o);
-    if((o.v||o)===val)op.selected=true;
-    s.appendChild(op);
-  });
-  s.onchange=()=>onChange(s.value);
-  d.appendChild(s);
-  return d;
-}
 function btn(label,cls,onClick){const b=el('button',{class:'btn '+cls},label);b.onclick=onClick;return b;}
 
 // ── RENDER ─────────────────────────────────────────────────────────────────────
@@ -512,7 +482,7 @@ function renderBottomNav(){
   const tabs=[['home','🏠','Start'],['children','👶','Dzieci'],['daily','📅','Dziennik'],['birthdays','🎂','Urodziny'],['terminy','📅','Terminy'],['photos','📸','Zdjęcia']];
   tabs.push(['occupancy','📊','Obłożenie']);
   if(isAdmin()){tabs.push(['staff','👩','Pracownicy'],['admin','⚙️','Admin']);}
-  tabs.forEach(([id,icon,label])=>{
+  tabs.forEach(function(tab){var id=tab[0],icon=tab[1],label=tab[2];
     const unread=id==='admin'?S.notifications.filter(n=>!n.seen).length:0;
     const b=el('button',{class:'nav-item'+(currentTab===id?' active':'')});
     b.innerHTML='<span class="ni">'+icon+'</span><span class="nl">'+label+(unread>0?'<span class="ndot"></span>':'')+'</span>';
@@ -719,7 +689,7 @@ function renderChildView(main, child){
   header.appendChild(av);header.appendChild(info);
   main.appendChild(header);
   const tabs=el('div',{class:'tabs'});
-  [['karta','📋 Karta'],['obs','👁️ Obserwacje'],['health','🏥 Zdrowie'],['behavior','⚡ Zachowanie'],['accident','🚨 Wypadki'],['pickup','📞 Odbiór'],['notes','📝 Notatki']].forEach(([id,lbl])=>{
+  [['karta','📋 Karta'],['obs','👁️ Obserwacje'],['health','🏥 Zdrowie'],['behavior','⚡ Zachowanie'],['accident','🚨 Wypadki'],['pickup','📞 Odbiór'],['notes','📝 Notatki']].forEach(function(tab){var id=tab[0],lbl=tab[1];
     const t=el('button',{class:'tab'+(childTab===id?' active':'')},lbl);
     t.onclick=()=>{childTab=id;render();};
     tabs.appendChild(t);
@@ -940,8 +910,7 @@ function renderAccidentForm(main, child){
   const card=el('div',{class:'card'});
   card.appendChild(el('div',{style:'font-weight:800;font-size:15px;color:var(--r);margin-bottom:14px'},'🚨 Protokół Powypadkowy'));
   const fields=[['date','Data wypadku','date'],['time','Godzina wypadku'],['injuryType','Rodzaj urazu'],['place','Miejsce wypadku'],['activityType','Rodzaj zajęć'],['supervisor','Osoba sprawująca nadzór'],['supervisorPresent','Czy była obecna?'],['team1','Członek zespołu 1'],['team2','Członek zespołu 2']];
-  fields.forEach(([k,l,t])=>card.appendChild(inp(l,accFormData[k],(v)=>accFormData[k]=v,{type:t||'text'})));
-  [['injuryDesc','Opis urazu'],['description','Opis wypadku i przyczyny'],['firstAid','Udzielona pomoc'],['witnesses','Świadkowie'],['preventiveMeasures','Środki zapobiegawcze']].forEach(([k,l])=>card.appendChild(textarea(l,accFormData[k],(v)=>accFormData[k]=v)));
+  fields.forEach(function(f){var k=f[0],l=f[1],t=f[2];card.appendChild(inp(l,accFormData[k],function(v){accFormData[k]=v;},{type:t||'text'}));});  [['injuryDesc','Opis urazu'],['description','Opis wypadku i przyczyny'],['firstAid','Udzielona pomoc'],['witnesses','Świadkowie'],['preventiveMeasures','Środki zapobiegawcze']].forEach(function(f){var k=f[0],l=f[1];card.appendChild(textarea(l,accFormData[k],function(v){accFormData[k]=v;}));});
   const row=el('div',{class:'btn-row'});
   row.appendChild(btn('💾 Zapisz protokół','btn-r',()=>{
     var entry=Object.assign({},accFormData,{id:uid()});
@@ -993,7 +962,7 @@ function renderDaily(main){
   main.appendChild(actCard);
   const outCard=el('div',{class:'card'});
   outCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:12px'},'🌳 Pobyt na świeżym powietrzu'));
-  [['outdoorAM','Przedpołudnie'],['outdoorPM','Popołudnie']].forEach(([field,lbl])=>{
+  [['outdoorAM','Przedpołudnie'],['outdoorPM','Popołudnie']].forEach(function(fp){var field=fp[0],lbl=fp[1];
     const wrap=el('div',{class:'daily-entry'});
     const lb=el('label',{});
     const cb=el('input',{type:'checkbox'});
@@ -1025,7 +994,7 @@ function renderDaily(main){
 function renderStaff(main){
   main.appendChild(el('div',{class:'section-title'},'👩‍🏫 Pracownicy'));
   const tabs=el('div',{class:'tabs'});
-  [['eval','📋 Samoocena'],['diagnosis','🔍 Diagnoza'],['criteria','⭐ Ocena kryteriów']].forEach(([id,lbl])=>{
+  [['eval','📋 Samoocena'],['diagnosis','🔍 Diagnoza'],['criteria','⭐ Ocena kryteriów']].forEach(function(tab){var id=tab[0],lbl=tab[1];
     const t=el('button',{class:'tab'+(staffTab===id?' active':'')},lbl);
     t.onclick=()=>{staffTab=id;render();};
     tabs.appendChild(t);
@@ -1049,7 +1018,7 @@ function buildEvalForm(container, emp){
   let form={date:today(),situation:'',methods:'',goals:'',qualifications:'',parentContact:'',changes:'',conclusions:''};
   container.appendChild(el('div',{style:'font-size:13px;color:var(--lt);margin-bottom:12px'},'Karta samooceny opiekuna'));
   container.appendChild(inp('Data',form.date,(v)=>form.date=v,{type:'date'}));
-  [['situation','Sytuacja w mojej grupie'],['methods','Formy i metody pracy'],['goals','Stopień realizacji celów'],['qualifications','Podnoszenie kwalifikacji'],['parentContact','Kontakty z rodzinami'],['changes','Zmiany na przyszły rok'],['conclusions','Wnioski do dalszej pracy']].forEach(([k,l])=>container.appendChild(textarea(l,form[k],(v)=>form[k]=v)));
+  [['situation','Sytuacja w mojej grupie'],['methods','Formy i metody pracy'],['goals','Stopień realizacji celów'],['qualifications','Podnoszenie kwalifikacji'],['parentContact','Kontakty z rodzinami'],['changes','Zmiany na przyszły rok'],['conclusions','Wnioski do dalszej pracy']].forEach(function(f){var k=f[0],l=f[1];container.appendChild(textarea(l,form[k],function(v){form[k]=v;}));});
   container.appendChild(btn('💾 Zapisz','btn-p btn-sm',()=>{
     var entry=Object.assign({},form,{id:uid()});
     setLog("employeeEvals",emp.id,[entry].concat(S.employeeEvals[emp.id]||[]));
@@ -1186,7 +1155,7 @@ function renderAdmin(main){
     main.appendChild(bg);
   }
   const tabs=el('div',{class:'tabs'});
-  [['children','👶 Dzieci'],['users','👥 Pracownicy'],['terminy','📅 Terminy'],['log','📜 Historia']].forEach(([id,lbl])=>{
+  [['children','👶 Dzieci'],['users','👥 Pracownicy'],['terminy','📅 Terminy'],['log','📜 Historia']].forEach(function(tab){var id=tab[0],lbl=tab[1];
     const t=el('button',{class:'tab'+(adminTab===id?' active':'')},lbl);
     t.onclick=()=>{adminTab=id;render();};
     tabs.appendChild(t);

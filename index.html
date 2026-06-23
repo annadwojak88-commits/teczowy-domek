@@ -784,4 +784,1463 @@ function renderChildObs(main, child){
     const header=el('div',{style:'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'});
     header.innerHTML='<div><div style="font-weight:800">Obserwacja '+(obs.length-i)+'</div><div style="font-size:12px;color:var(--lt)">'+o.date+' · '+(ag?ag.label:'')+(o.schoolYear?' · '+o.schoolYear:'')+'</div></div>';
     const right=el('div',{style:'display:flex;align-items:center;gap:8px'});
-    right.innerHTML='<div style="text-align:right"><div style="font-size:12px;color:var(--lt)">Wy
+    right.innerHTML='<div style="text-align:right"><div style="font-size:12px;color:var(--lt)">Wypełniono</div><div style="font-weight:800;color:var(--p)">'+filled+'/'+total+'</div></div>';
+    const pb=btn('🖨️','btn-pr',()=>printObs(child,o));
+    const eb=btn('✏️','btn-o btn-sm',()=>{obsFormData=Object.assign({},o);obsFormActive=true;obsEditId=o.id;render();});
+    const db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:700;cursor:pointer'},'🗑️');
+    db.onclick=function(){confirmDelete('Usunąć tę obserwację?',function(){setState(function(s){setLog("observations",child.id,(S.observations[child.id]||[]).filter(function(x){return x.id!==o.id;}));return S;});logChange('Usunięto obserwację: '+child.name);showToast('Obserwacja usunięta');render();});};
+    right.appendChild(pb);right.appendChild(eb);right.appendChild(db);
+    header.appendChild(right);
+    card.appendChild(header);
+    if(o.notes)card.appendChild(el('div',{style:'font-size:12px;color:var(--lt);font-style:italic'},'"'+o.notes+'"'));
+    main.appendChild(card);
+  });
+}
+
+function renderObsForm(main, child){
+  const back=el('button',{class:'back-btn'},'← Wróć do listy');
+  back.onclick=()=>{obsFormActive=false;obsEditId=null;render();};
+  main.appendChild(back);
+  const card=el('div',{class:'card'});
+  const ag=OBS_DATA[obsFormData.ageGroup];
+  card.appendChild(el('div',{style:'font-weight:800;font-size:15px;color:var(--p);margin-bottom:4px'},'👁️ Nowa obserwacja — '+ag.label));
+  card.appendChild(el('div',{style:'font-size:12px;color:var(--lt);margin-bottom:14px'},'Dla każdej cechy wybierz poziom'));
+  card.appendChild(inp('Data obserwacji',obsFormData.date,(v)=>obsFormData.date=v,{type:'date'}));
+  ag.sections.forEach((sec,si)=>{
+    card.appendChild(el('div',{class:'obs-sec-hdr'},sec.name));
+    sec.items.forEach((item,ii)=>{
+      const wrap=el('div',{class:'obs-item'});
+      wrap.appendChild(el('div',{class:'obs-item-lbl'},(ii+1)+'. '+item));
+      const btns=el('div',{class:'lvl-btns'});
+      LEVELS.forEach(lv=>{
+        const key=si+'_'+ii, lk=LEVEL_KEY[lv];
+        const b=el('button',{class:'lvl-btn'+(obsFormData.scores[key]===lv?' sel-'+lk:'')},lv);
+        b.onclick=()=>{
+          obsFormData.scores[key]=lv;
+          // update button styles
+          btns.querySelectorAll('.lvl-btn').forEach(x=>x.className='lvl-btn');
+          b.className='lvl-btn sel-'+lk;
+        };
+        btns.appendChild(b);
+      });
+      wrap.appendChild(btns);
+      card.appendChild(wrap);
+    });
+  });
+  card.appendChild(textarea('Uwagi',obsFormData.notes,(v)=>obsFormData.notes=v));
+  const row=el('div',{class:'btn-row'});
+  row.appendChild(btn('💾 Zapisz obserwację','btn-p',function(){
+    if(obsEditId){
+      setState(function(s){const list=(s.observations[child.id]||[]).map(function(o){return o.id===obsEditId?Object.assign({},o,obsFormData,{id:obsEditId}):o;});setLog("observations",child.id,list);return S;});
+      showToast('Obserwacja zaktualizowana');
+    }else{
+      const newObs={id:uid(),...obsFormData,schoolYear:getSchoolYearLabel()};
+      setLog("observations",child.id,[newObs].concat(S.observations[child.id]||[]));
+      logChange('Obserwacja dla '+child.name);showToast('Obserwacja zapisana');
+    }
+    obsFormActive=false;obsEditId=null;render();
+  }));
+  row.appendChild(btn('Anuluj','btn-o',function(){obsFormActive=false;obsEditId=null;render();}));
+  card.appendChild(row);
+  main.appendChild(card);
+}
+
+// ── HEALTH TAB ────────────────────────────────────────────────────────────────
+function renderChildHealth(main, child){
+  var form={date:today(),desc:'',action:'',sig:S.currentUser.name};
+  const card=el('div',{class:'card'});
+  card.appendChild(el('div',{style:'font-weight:800;font-size:14px;color:var(--p);margin-bottom:12px'},'🏥 Zgłoszenie objawów chorobowych'));
+  card.appendChild(inp('Data',form.date,(v)=>form.date=v,{type:'date'}));
+  card.appendChild(textarea('Opis objawów',form.desc,(v)=>form.desc=v));
+  card.appendChild(textarea('Działania / decyzje',form.action,(v)=>form.action=v));
+  card.appendChild(inp('Podpis',form.sig,(v)=>form.sig=v));
+  card.appendChild(btn('💾 Dodaj wpis','btn-p',()=>{
+    if(!form.desc)return;
+    var entry=Object.assign({},form,{id:uid()});
+    setLog("healthLog",child.id,[entry].concat(S.healthLog[child.id]||[]));
+    logChange('Wpis zdrowotny: '+child.name);
+    showToast('Wpis zapisany');render();
+  }));
+  main.appendChild(card);
+  const log=S.healthLog[child.id]||[];
+  if(!log.length){main.appendChild(el('div',{class:'empty'},'<div class="empty-icon">✅</div><div>Brak wpisów zdrowotnych</div>'));return;}
+  log.forEach(e=>{
+    const wrap=el('div',{style:'position:relative;margin-bottom:8px'});
+    const d=el('div',{class:'log-entry',style:'margin-bottom:0'});
+    d.innerHTML='<div class="le-date">'+e.date+' · '+e.sig+'</div><div class="le-desc">'+e.desc+'</div>'+(e.action?'<div class="le-act">→ '+e.action+'</div>':'');
+    const db=el('button',{style:'position:absolute;top:8px;right:8px;background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:6px;padding:3px 7px;font-size:11px;font-weight:700;cursor:pointer'},'🗑️');
+    db.onclick=function(){confirmDelete('Usunąć ten wpis?',function(){setState(function(s){setLog("healthLog",child.id,(S.healthLog[child.id]||[]).filter(function(x){return x.id!==e.id;}));return S;});showToast('Wpis usunięty');render();});};
+    wrap.appendChild(d);wrap.appendChild(db);main.appendChild(wrap);
+  });
+}
+
+// ── BEHAVIOR TABR TAB ──────────────────────────────────────────────────────────────
+function renderChildBehavior(main, child){
+  var form={date:today(),desc:'',reaction:'',sig:S.currentUser.name};
+  const card=el('div',{class:'card'});
+  card.appendChild(el('div',{style:'font-weight:800;font-size:14px;color:var(--p);margin-bottom:12px'},'⚡ Zgłoszenie zachowania trudnego'));
+  card.appendChild(inp('Data',form.date,(v)=>form.date=v,{type:'date'}));
+  card.appendChild(textarea('Opis zachowania',form.desc,(v)=>form.desc=v));
+  card.appendChild(textarea('Reakcja / działanie',form.reaction,(v)=>form.reaction=v));
+  card.appendChild(inp('Podpis',form.sig,(v)=>form.sig=v));
+  card.appendChild(btn('💾 Dodaj wpis','btn-p',()=>{
+    if(!form.desc)return;
+    var entry=Object.assign({},form,{id:uid()});
+    setLog("behaviorLog",child.id,[entry].concat(S.behaviorLog[child.id]||[]));
+    logChange('Wpis zachowania: '+child.name);
+    showToast('Wpis zapisany');render();
+  }));
+  main.appendChild(card);
+  const log=S.behaviorLog[child.id]||[];
+  if(!log.length){main.appendChild(el('div',{class:'empty'},'<div class="empty-icon">🤝</div><div>Brak wpisów</div>'));return;}
+  log.forEach(e=>{
+    const wrap=el('div',{style:'position:relative;margin-bottom:8px'});
+    const d=el('div',{class:'log-entry',style:'border-left-color:var(--r);margin-bottom:0'});
+    d.innerHTML='<div class="le-date">'+e.date+' · '+e.sig+'</div><div class="le-desc">'+e.desc+'</div>'+(e.reaction?'<div class="le-act">→ '+e.reaction+'</div>':'');
+    const db=el('button',{style:'position:absolute;top:8px;right:8px;background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:6px;padding:3px 7px;font-size:11px;font-weight:700;cursor:pointer'},'🗑️');
+    db.onclick=function(){confirmDelete('Usunąć ten wpis?',function(){setState(function(s){setLog("behaviorLog",child.id,(S.behaviorLog[child.id]||[]).filter(function(x){return x.id!==e.id;}));return S;});showToast('Wpis usunięty');render();});};
+    wrap.appendChild(d);wrap.appendChild(db);main.appendChild(wrap);
+  });
+}
+
+
+
+// ── ACCIDENT TAB ──────────────────────────────────────────────────────────────
+let accFormActive=false, accFormData={};
+function renderChildAccident(main, child){
+  if(accFormActive){renderAccidentForm(main,child);return;}
+  const nb=btn('🚨 Nowy protokół powypadkowy','btn-r',()=>{
+    accFormData={date:today(),time:'',injuryType:'',injuryDesc:'',firstAid:'',place:'',activityType:'',description:'',supervisor:'',supervisorPresent:'',witnesses:'',preventiveMeasures:'',team1:S.currentUser.name,team2:''};
+    accFormActive=true;render();
+  });
+  nb.style.marginBottom='14px';
+  main.appendChild(nb);
+  const acc=S.accidents[child.id]||[];
+  if(!acc.length){main.appendChild(el('div',{class:'empty'},'<div class="empty-icon">✅</div><div>Brak protokołów powypadkowych</div>'));return;}
+  acc.forEach((a,i)=>{
+    const card=el('div',{class:'card',style:'border-left:4px solid var(--r)'});
+    const header=el('div',{style:'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px'});
+    const td=el('div',{});td.innerHTML='<div style="font-weight:800">Wypadek '+(acc.length-i)+'</div><div style="font-size:12px;color:var(--lt)">'+a.date+' '+a.time+'</div>';
+    header.appendChild(td);
+    const br=el('div',{style:'display:flex;gap:6px'});
+    br.appendChild(btn('🖨️','btn-pr',function(){printAccident(child,a);}));
+    const db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:700;cursor:pointer'},'🗑️');
+    db.onclick=function(){confirmDelete('Usunąć protokół?',function(){setState(function(s){setLog("accidents",child.id,(S.accidents[child.id]||[]).filter(function(x){return x.id!==a.id;}));return S;});logChange('Usunięto protokół: '+child.name);showToast('Usunięto');render();});};
+    br.appendChild(db);header.appendChild(br);
+    card.appendChild(header);
+    card.appendChild(el('div',{style:'font-size:13px'},'<strong>Urazy:</strong> '+a.injuryType));
+    main.appendChild(card);
+  });
+}
+
+function renderAccidentForm(main, child){
+  const back=el('button',{class:'back-btn'},'← Wróć');
+  back.onclick=()=>{accFormActive=false;render();};
+  main.appendChild(back);
+  const card=el('div',{class:'card'});
+  card.appendChild(el('div',{style:'font-weight:800;font-size:15px;color:var(--r);margin-bottom:14px'},'🚨 Protokół Powypadkowy'));
+  const fields=[['date','Data wypadku','date'],['time','Godzina wypadku'],['injuryType','Rodzaj urazu'],['place','Miejsce wypadku'],['activityType','Rodzaj zajęć'],['supervisor','Osoba sprawująca nadzór'],['supervisorPresent','Czy była obecna?'],['team1','Członek zespołu 1'],['team2','Członek zespołu 2']];
+  fields.forEach(([k,l,t])=>card.appendChild(inp(l,accFormData[k],(v)=>accFormData[k]=v,{type:t||'text'})));
+  [['injuryDesc','Opis urazu'],['description','Opis wypadku i przyczyny'],['firstAid','Udzielona pomoc'],['witnesses','Świadkowie'],['preventiveMeasures','Środki zapobiegawcze']].forEach(([k,l])=>card.appendChild(textarea(l,accFormData[k],(v)=>accFormData[k]=v)));
+  const row=el('div',{class:'btn-row'});
+  row.appendChild(btn('💾 Zapisz protokół','btn-r',()=>{
+    var entry=Object.assign({},accFormData,{id:uid()});
+    setLog("accidents",child.id,[entry].concat(S.accidents[child.id]||[]));
+    logChange('Protokół powypadkowy: '+child.name);
+    showToast('Protokół zapisany');
+    accFormActive=false;render();
+  }));
+  row.appendChild(btn('Anuluj','btn-o',()=>{accFormActive=false;render();}));
+  card.appendChild(row);
+  main.appendChild(card);
+}
+
+// ── DAILY LOG ─────────────────────────────────────────────────────────────────
+let dailyDate=today();
+function renderDaily(main){
+  main.appendChild(el('div',{class:'section-title'},'📅 Dziennik Zajęć'));
+  const grp=isAdmin()?S.groups[0]:S.currentUser.group;
+  const dateWrap=el('div',{class:'fg'});
+  dateWrap.appendChild(el('label',{class:'fl'},'Data'));
+  const di=el('input',{class:'fi',type:'date',value:dailyDate});
+  di.oninput=()=>{dailyDate=di.value;render();};
+  dateWrap.appendChild(di);
+  main.appendChild(dateWrap);
+  main.appendChild(el('div',{style:'font-size:13px;color:var(--lt);margin-bottom:14px'},'Grupa: <strong>'+grp+'</strong>'));
+  const key=dailyDate+'_'+grp;
+  let log=S.dailyLogs[key]||{entries:[{time:'9:00–9:30',type:'Zajęcia dydaktyczne',done:false,desc:'',sig:''},{time:'14:30–15:00',type:'Zabawy dowolne',done:false,desc:'',sig:''},{time:'15:00–15:45',type:'Czytanie bajek',done:false,desc:'',sig:''}],outdoorAM:{done:false,from:'9:30',to:'10:30',desc:'',sig:''},outdoorPM:{done:false,from:'15:00',to:'15:30',desc:'',sig:''},summary:'',sigAM:'',sigPM:''};
+  function saveLog(){setLog("dailyLogs",key,log);}
+  const actCard=el('div',{class:'card'});
+  actCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:12px'},'🎓 Zajęcia rozwijające'));
+  log.entries.forEach((entry,i)=>{
+    const wrap=el('div',{class:'daily-entry'});
+    const lbl=el('label',{});
+    const cb=el('input',{type:'checkbox'});
+    cb.checked=entry.done;
+    cb.onchange=()=>{log.entries[i].done=cb.checked;saveLog();};
+    lbl.appendChild(cb);
+    lbl.appendChild(el('span',{},' '+entry.time+' — '+entry.type));
+    wrap.appendChild(lbl);
+    const di2=el('input',{class:'fi',placeholder:'Temat zajęć',value:entry.desc||''});
+    di2.oninput=()=>{log.entries[i].desc=di2.value;saveLog();};
+    di2.style.marginBottom='6px';
+    wrap.appendChild(di2);
+    const si=el('input',{class:'fi',placeholder:'Podpis opiekuna',value:entry.sig||''});
+    si.oninput=()=>{log.entries[i].sig=si.value;saveLog();};
+    wrap.appendChild(si);
+    actCard.appendChild(wrap);
+  });
+  main.appendChild(actCard);
+  const outCard=el('div',{class:'card'});
+  outCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:12px'},'🌳 Pobyt na świeżym powietrzu'));
+  [['outdoorAM','Przedpołudnie'],['outdoorPM','Popołudnie']].forEach(([field,lbl])=>{
+    const wrap=el('div',{class:'daily-entry'});
+    const lb=el('label',{});
+    const cb=el('input',{type:'checkbox'});
+    cb.checked=log[field]&&log[field].done;
+    cb.onchange=()=>{log[field].done=cb.checked;saveLog();};
+    lb.appendChild(cb);lb.appendChild(el('span',{},' '+lbl));
+    wrap.appendChild(lb);
+    const row=el('div',{class:'row2'});
+    const f1=inp('Od',log[field]&&log[field].from||'',(v)=>{log[field].from=v;saveLog();});
+    const f2=inp('Do',log[field]&&log[field].to||'',(v)=>{log[field].to=v;saveLog();});
+    row.appendChild(f1);row.appendChild(f2);
+    wrap.appendChild(row);
+    outCard.appendChild(wrap);
+  });
+  main.appendChild(outCard);
+
+  const sumCard=el('div',{class:'card'});
+  sumCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:12px'},'📝 Podsumowanie dnia'));
+  sumCard.appendChild(textarea('',log.summary||'',(v)=>{log.summary=v;saveLog();}));
+  const sr=el('div',{class:'row2'});
+  sr.appendChild(inp('Podpis rano',log.sigAM||'',(v)=>{log.sigAM=v;saveLog();}));
+  sr.appendChild(inp('Podpis popołudnie',log.sigPM||'',(v)=>{log.sigPM=v;saveLog();}));
+  sumCard.appendChild(sr);
+  main.appendChild(sumCard);
+  main.appendChild(btn('💾 Zapisz dziennik','btn-p full',()=>{logChange('Dziennik: '+dailyDate+' '+grp);showToast('Dziennik zapisany');}));
+}
+
+// ── STAFF ─────────────────────────────────────────────────────────────────────
+function renderStaff(main){
+  main.appendChild(el('div',{class:'section-title'},'👩‍🏫 Pracownicy'));
+  const tabs=el('div',{class:'tabs'});
+  [['eval','📋 Samoocena'],['diagnosis','🔍 Diagnoza'],['criteria','⭐ Ocena kryteriów']].forEach(([id,lbl])=>{
+    const t=el('button',{class:'tab'+(staffTab===id?' active':'')},lbl);
+    t.onclick=()=>{staffTab=id;render();};
+    tabs.appendChild(t);
+  });
+  main.appendChild(tabs);
+  const emps=S.users.filter(u=>u.role==='opiekun');
+  emps.forEach(emp=>{
+    const item=el('div',{class:'acc-item'});
+    const trigger=el('button',{class:'acc-trigger'},'👤 '+emp.name+' · '+emp.group+' <span>▼</span>');
+    const body=el('div',{class:'acc-body'});
+    trigger.onclick=()=>body.classList.toggle('open');
+    if(staffTab==='eval') buildEvalForm(body,emp);
+    else if(staffTab==='diagnosis') buildDiagnosisForm(body,emp);
+    else if(staffTab==='criteria') buildCriteriaForm(body,emp);
+    item.appendChild(trigger);item.appendChild(body);
+    main.appendChild(item);
+  });
+}
+
+function buildEvalForm(container, emp){
+  let form={date:today(),situation:'',methods:'',goals:'',qualifications:'',parentContact:'',changes:'',conclusions:''};
+  container.appendChild(el('div',{style:'font-size:13px;color:var(--lt);margin-bottom:12px'},'Karta samooceny opiekuna'));
+  container.appendChild(inp('Data',form.date,(v)=>form.date=v,{type:'date'}));
+  [['situation','Sytuacja w mojej grupie'],['methods','Formy i metody pracy'],['goals','Stopień realizacji celów'],['qualifications','Podnoszenie kwalifikacji'],['parentContact','Kontakty z rodzinami'],['changes','Zmiany na przyszły rok'],['conclusions','Wnioski do dalszej pracy']].forEach(([k,l])=>container.appendChild(textarea(l,form[k],(v)=>form[k]=v)));
+  container.appendChild(btn('💾 Zapisz','btn-p btn-sm',()=>{
+    var entry=Object.assign({},form,{id:uid()});
+    setLog("employeeEvals",emp.id,[entry].concat(S.employeeEvals[emp.id]||[]));
+    logChange('Samoocena: '+emp.name);
+    showToast('Samoocena zapisana');
+    renderSavedEvals(container,emp);
+  }));
+  renderSavedEvals(container,emp);
+}
+
+function renderSavedEvals(container, emp){
+  let old=container.querySelector('.saved-evals');
+  if(old)old.remove();
+  const evals=(S.employeeEvals[emp.id]||[]).filter(e=>e.type!=='criteria');
+  if(!evals.length)return;
+  const wrap=el('div',{class:'saved-evals',style:'margin-top:14px'});
+  wrap.appendChild(el('div',{style:'font-weight:700;font-size:13px;margin-bottom:8px'},'Historia samoocen ('+evals.length+')'));
+  evals.forEach(e=>{
+    const row=el('div',{style:'display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 8px;background:var(--bg);border-radius:8px;margin-bottom:5px'});
+    row.appendChild(el('span',{},'<strong>'+e.date+'</strong> — '+(e.conclusions||'').slice(0,50)+'...'));
+    const pb=btn('🖨️','btn-pr',()=>printEval(emp,e));
+    row.appendChild(pb);
+    wrap.appendChild(row);
+  });
+  container.appendChild(wrap);
+}
+
+function buildDiagnosisForm(container, emp){
+  let form={date:today(),q_planning:'',q_concept:'raczej tak',q_individual:'',q_methods:'tak',q_childKnowledge:'tak, każde dziecko',q_development:'',q_monitoring:'tak',q_activation:'',q_parents:'tak',q_communicate:'',q_teamwork:'',q_teamCheck:[],q_localImage:'tak',q_parentOpinion:'',q_cooperationSufficient:'tak'};
+  container.appendChild(el('div',{style:'font-size:13px;color:var(--lt);margin-bottom:12px'},'Diagnoza obszarów wymagających poprawy'));
+  container.appendChild(inp('Data',form.date,(v)=>form.date=v,{type:'date'}));
+  function radio(key,opts){
+    const wrap=el('div',{style:'display:flex;flex-direction:column;gap:5px;margin-bottom:12px'});
+    opts.forEach(o=>{
+      const lbl=el('label',{style:'display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer'});
+      const r=el('input',{type:'radio',name:emp.id+'_'+key,value:o});
+      if(form[key]===o)r.checked=true;
+      r.onchange=()=>form[key]=o;
+      lbl.appendChild(r);lbl.appendChild(el('span',{},o));
+      wrap.appendChild(lbl);
+    });
+    return wrap;
+  }
+  container.appendChild(el('div',{class:'fl'},'Jak odbywają się prace nad przygotowaniem i monitorowaniem Twojej pracy?'));
+  container.appendChild(textarea('',form.q_planning,(v)=>form.q_planning=v));
+  container.appendChild(el('div',{class:'fl'},'Czy koncepcja Twojej pracy uwzględnia potrzeby dzieci?'));
+  container.appendChild(radio('q_concept',['tak, wszystkie w pełni','raczej tak','nie uwzględnia']));
+  container.appendChild(el('div',{class:'fl'},'Jak potrzeby dzieci wpływają na planowanie pracy?'));
+  container.appendChild(textarea('',form.q_individual,(v)=>form.q_individual=v));
+  container.appendChild(el('div',{class:'fl'},'Czy stosuję różnorodne metody pracy?'));
+  container.appendChild(radio('q_methods',['tak','nie']));
+  container.appendChild(el('div',{class:'fl'},'Czy potrafię scharakteryzować każde dziecko?'));
+  container.appendChild(radio('q_childKnowledge',['tak, każde dziecko','tak, ale tylko część','nie']));
+  container.appendChild(el('div',{class:'fl'},'Jak pracuję nad rozwijaniem zainteresowań dzieci?'));
+  container.appendChild(textarea('',form.q_development,(v)=>form.q_development=v));
+  container.appendChild(el('div',{class:'fl'},'Jak zachęcam dzieci do różnorodnych aktywności?'));
+  container.appendChild(textarea('',form.q_activation,(v)=>form.q_activation=v));
+  container.appendChild(el('div',{class:'fl'},'Jak doskonalimy umiejętność pracy zespołowej?'));
+  container.appendChild(textarea('',form.q_teamwork,(v)=>form.q_teamwork=v));
+  container.appendChild(el('div',{class:'fl'},'Czy placówka jest pozytywnie postrzegana w środowisku?'));
+  container.appendChild(radio('q_localImage',['tak','raczej tak','nie']));
+  container.appendChild(el('div',{class:'fl'},'Jak placówka pozyskuje opinie rodziców?'));
+  container.appendChild(textarea('',form.q_parentOpinion,(v)=>form.q_parentOpinion=v));
+  container.appendChild(btn('💾 Zapisz diagnozę','btn-p btn-sm',()=>{
+    const diags=S.employeeDiagnosis[emp.id]||[];
+    setLog("employeeDiagnosis",emp.id,[Object.assign({},form,{id:uid()})].concat(diags));
+    logChange('Diagnoza: '+emp.name);showToast('Diagnoza zapisana');
+  }));
+}
+
+function buildCriteriaForm(container, emp){
+  let scores={}, evalDate=today();
+  container.appendChild(el('div',{style:'font-size:12px;color:var(--lt);margin-bottom:12px'},'Skala: 1 = nie spełnia | 2 = spełnia częściowo | 3 = spełnia w pełni'));
+  const dateWrap=inp('Data oceny',evalDate,(v)=>evalDate=v,{type:'date'});
+  container.appendChild(dateWrap);
+  const scoreDisplay=el('div',{class:'score-box'});
+  scoreDisplay.innerHTML='<div class="score-num">0</div><div style="font-size:13px;color:var(--lt)">punktów</div><div style="font-weight:700;margin-top:4px">Ocena: —</div><div style="font-size:11px;color:var(--lt);margin-top:4px">Wyróżniająca >100 · Dobra 50–100 · Negatywna <50</div>';
+  function updateScore(){
+    const total=Object.values(scores).reduce((a,b)=>a+b,0);
+    const grade=total>100?'Wyróżniająca':total>=50?'Dobra':'Negatywna';
+    const color=total>100?'var(--g)':total>=50?'var(--a)':'var(--r)';
+    scoreDisplay.innerHTML='<div class="score-num" style="color:var(--p)">'+total+'</div><div style="font-size:13px;color:var(--lt)">punktów</div><div style="font-weight:700;margin-top:4px;color:'+color+'">Ocena: '+grade+'</div><div style="font-size:11px;color:var(--lt);margin-top:4px">Wyróżniająca >100 · Dobra 50–100 · Negatywna <50</div>';
+  }
+  CRITERIA.forEach((crit,i)=>{
+    const row=el('div',{class:'cr-row'});
+    row.appendChild(el('div',{class:'cr-num'},(i+1)+'.'));
+    row.appendChild(el('div',{class:'cr-txt'},crit));
+    const btns=el('div',{class:'cr-scores'});
+    [1,2,3].forEach(n=>{
+      const b=el('button',{class:'sc-btn'},String(n));
+      b.onclick=()=>{
+        scores[i]=n;
+        btns.querySelectorAll('.sc-btn').forEach(x=>x.className='sc-btn');
+        b.className='sc-btn a'+n;
+        updateScore();
+      };
+      btns.appendChild(b);
+    });
+    row.appendChild(btns);
+    container.appendChild(row);
+  });
+  container.appendChild(scoreDisplay);
+  const row=el('div',{class:'btn-row'});
+  row.appendChild(btn('💾 Zapisz ocenę','btn-p',()=>{
+    const total=Object.values(scores).reduce((a,b)=>a+b,0);
+    const grade=total>100?'Wyróżniająca':total>=50?'Dobra':'Negatywna';
+    const entry={id:uid(),date:evalDate,type:'criteria',scores:Object.assign({},scores),total:total,grade:grade};
+    setLog("employeeEvals",emp.id,[entry].concat(S.employeeEvals[emp.id]||[]));
+    logChange('Ocena kryteriów: '+emp.name+' — '+total+' pkt ('+grade+')');
+    showToast('Ocena zapisana');
+  }));
+  row.appendChild(btn('🖨️ Drukuj','btn-pr',()=>printCriteria(emp,scores,Object.values(scores).reduce((a,b)=>a+b,0),evalDate)));
+  container.appendChild(row);
+}
+
+// ── ADMIN ─────────────────────────────────────────────────────────────────────
+let confirmDeleteTarget=null, adminSearch='', adminFilter='Wszystkie';
+function renderAdmin(main){
+  main.appendChild(el('div',{class:'section-title'},'⚙️ Panel administratora'));
+  if(confirmDeleteTarget){
+    const bg=el('div',{class:'modal-bg'});
+    const modal=el('div',{class:'modal'});
+    modal.innerHTML='<div style="font-size:40px;text-align:center;margin-bottom:12px">🗑️</div><div style="font-weight:800;font-size:16px;text-align:center;margin-bottom:8px">Potwierdzenie usunięcia</div><div style="font-size:14px;color:var(--lt);text-align:center;margin-bottom:20px">Czy na pewno chcesz usunąć <strong style="color:var(--txt)">'+confirmDeleteTarget.name+'</strong>?'+(confirmDeleteTarget.type==='child'?'<div style="margin-top:6px;font-size:12px;color:var(--r)">Wszystkie dane tego dziecka zostaną usunięte!</div>':'')+'</div>';
+    const row=el('div',{style:'display:flex;gap:10px'});
+    row.appendChild(btn('Anuluj','btn-o full',()=>{confirmDeleteTarget=null;render();}));
+    row.appendChild(btn('Usuń','btn-r full',()=>{
+      if(confirmDeleteTarget.type==='child')setState({children:S.children.filter(function(c){return c.id!==confirmDeleteTarget.id;})});
+      else setState({users:S.users.filter(function(u){return u.id!==confirmDeleteTarget.id;})});
+      showToast('Usunięto: '+confirmDeleteTarget.name);
+      confirmDeleteTarget=null;render();
+    }));
+    modal.appendChild(row);
+    bg.appendChild(modal);
+    main.appendChild(bg);
+  }
+  const tabs=el('div',{class:'tabs'});
+  [['children','👶 Dzieci'],['users','👥 Pracownicy'],['terminy','📅 Terminy'],['log','📜 Historia']].forEach(([id,lbl])=>{
+    const t=el('button',{class:'tab'+(adminTab===id?' active':'')},lbl);
+    t.onclick=()=>{adminTab=id;render();};
+    tabs.appendChild(t);
+  });
+  main.appendChild(tabs);
+  if(adminTab==='children') renderAdminChildren(main);
+  else if(adminTab==='users') renderAdminUsers(main);
+  else if(adminTab==='terminy') renderAdminTerminy(main);
+  else renderAdminLog(main);
+}
+
+function renderAdminChildren(main){
+  let newChild={name:'',group:'Grupa 1',dob:'',pesel:'',joinDate:'',endDate:''};
+  // Export buttons
+  const expRow=el('div',{style:'display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap'});
+  expRow.appendChild(btn('📥 Eksport lista dzieci','btn-pr',()=>exportChildren()));
+  expRow.appendChild(btn('📥 Eksport obserwacje','btn-pr',()=>exportObservations()));
+  expRow.appendChild(btn('📥 Eksport oceny pracowników','btn-pr',()=>exportEmployeeEvals()));
+  main.appendChild(expRow);
+
+  const addCard=el('div',{class:'card',style:'border-color:var(--g);border-width:2px'});
+  addCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;color:var(--g);margin-bottom:12px'},'➕ Dodaj nowe dziecko'));
+  addCard.appendChild(inp('Imię i nazwisko',newChild.name,function(v){newChild.name=v;},{placeholder:'np. Jan Kowalski'}));
+  addCard.appendChild(select('Grupa',newChild.group,['Grupa 1','Grupa 2'],function(v){newChild.group=v;}));
+  // PESEL with auto-fill DOB
+  var peselWrap=el('div',{class:'fg'});
+  peselWrap.appendChild(el('label',{class:'fl'},'PESEL'));
+  var peselInp=el('input',{class:'fi',placeholder:'11 cyfr — data urodzenia wypełni się automatycznie'});
+  peselInp.value=newChild.pesel||'';
+  peselInp.oninput=function(){
+    newChild.pesel=peselInp.value;
+    if(peselInp.value.length>=6){
+      try{
+        var p=peselInp.value,yy=parseInt(p.slice(0,2)),mm=parseInt(p.slice(2,4)),dd=parseInt(p.slice(4,6)),yr,rm=mm;
+        if(mm>=21&&mm<=32){rm=mm-20;yr=2000+yy;}else if(mm>=1&&mm<=12){rm=mm;yr=1900+yy;}
+        if(yr){newChild.dob=yr+'-'+String(rm).padStart(2,'0')+'-'+String(dd).padStart(2,'0');dobInp.value=newChild.dob;}
+      }catch(e){}
+    }
+  };
+  peselWrap.appendChild(peselInp);
+  addCard.appendChild(peselWrap);
+  // DOB
+  var dobWrap=el('div',{class:'fg'});
+  dobWrap.appendChild(el('label',{class:'fl'},'Data urodzenia'));
+  var dobInp=el('input',{class:'fi',type:'date'});
+  dobInp.value=newChild.dob||'';
+  dobInp.oninput=function(){newChild.dob=dobInp.value;};
+  dobWrap.appendChild(dobInp);
+  addCard.appendChild(dobWrap);
+  // Date range
+  var sep=el('div',{style:'font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;margin:8px 0 4px;border-top:1px solid var(--br);padding-top:10px'});
+  sep.textContent='📅 Okres uczęszczania do żłobka';
+  addCard.appendChild(sep);
+  addCard.appendChild(inp('Data od',newChild.joinDate||'',function(v){newChild.joinDate=v;},{type:'date'}));
+  addCard.appendChild(inp('Data do (opcjonalnie)',newChild.endDate||'',function(v){newChild.endDate=v;},{type:'date'}));
+  addCard.appendChild(btn('➕ Dodaj dziecko','btn-g full',function(){
+    if(!newChild.name.trim())return;
+    var c={id:uid(),name:newChild.name.trim(),dob:newChild.dob,group:newChild.group,
+      pesel:newChild.pesel||'',joinDate:newChild.joinDate||'',endDate:newChild.endDate||'',
+      address:'',motherName:'',motherPhone:'',fatherName:'',fatherPhone:'',
+      allergies:'',chronicDiseases:'',permanentMeds:'',extraInfo:''};
+    setState({children:S.children.concat([c])});
+    if(c.joinDate){
+      setLog('childHistory',c.id,[{id:uid(),date:c.joinDate,type:'przyjęcie',group:c.group,note:'',author:S.currentUser.name}]);
+    }
+    if(c.endDate){
+      setLog('childHistory',c.id,(S.childHistory[c.id]||[]).concat([{id:uid(),date:c.endDate,type:'odejście',group:c.group,note:'',author:S.currentUser.name}]));
+    }
+    logChange('Dodano dziecko: '+c.name);showToast('Dodano: '+c.name);
+    newChild={name:'',group:newChild.group,dob:'',pesel:'',joinDate:'',endDate:''};
+    render();
+  }));
+  main.appendChild(addCard);
+  // stats
+  const statsRow=el('div',{style:'display:flex;gap:10px;margin-bottom:14px'});
+  S.groups.forEach(g=>{
+    const sc=el('div',{class:'stat-card',style:'flex:1'});
+    sc.innerHTML='<div class="stat-num" style="color:var(--p)">'+S.children.filter(c=>c.group===g).length+'</div><div class="stat-lbl">'+g+'</div>';
+    statsRow.appendChild(sc);
+  });
+  const total=el('div',{class:'stat-card',style:'flex:1'});
+  total.innerHTML='<div class="stat-num" style="color:var(--g)">'+S.children.length+'</div><div class="stat-lbl">Łącznie</div>';
+  statsRow.appendChild(total);
+  main.appendChild(statsRow);
+  // filter + search
+  const tabs=el('div',{class:'tabs'});
+  ['Wszystkie','Grupa 1','Grupa 2'].forEach(g=>{
+    const cnt=g==='Wszystkie'?S.children.length:S.children.filter(c=>c.group===g).length;
+    const t=el('button',{class:'tab'+(adminFilter===g?' active':'')},g+' ('+cnt+')');
+    t.onclick=()=>{adminFilter=g;render();};
+    tabs.appendChild(t);
+  });
+  main.appendChild(tabs);
+  const srch=el('input',{class:'fi',placeholder:'🔍 Szukaj...',value:adminSearch,style:'margin-bottom:12px'});
+  srch.oninput=()=>{adminSearch=srch.value;render();};
+  main.appendChild(srch);
+  const filtered=S.children.filter(c=>(adminFilter==='Wszystkie'||c.group===adminFilter)&&c.name.toLowerCase().includes(adminSearch.toLowerCase()));
+  if(!filtered.length){main.appendChild(el('div',{class:'empty'},'<div class="empty-icon">👶</div><div>Brak wyników</div>'));return;}
+  filtered.forEach(c=>{
+    const row=el('div',{style:'background:#fff;border:2px solid var(--br);border-radius:14px;padding:11px 13px;display:flex;align-items:center;gap:12px;margin-bottom:8px'});
+    const av=el('div',{class:'ch-av',style:'background:'+childColor(c.id)+';width:38px;height:38px;font-size:13px'},initials(c.name));
+    const info=el('div',{style:'flex:1;min-width:0'});
+    info.innerHTML='<div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+c.name+'</div><div style="font-size:11px;color:var(--lt)">'+c.group+(c.dob?' · ur. '+c.dob:'')+'</div>';
+    const db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0'},'🗑️');
+    db.onclick=()=>{confirmDeleteTarget={type:'child',id:c.id,name:c.name};render();};
+    row.appendChild(av);row.appendChild(info);row.appendChild(db);
+    main.appendChild(row);
+  });
+}
+
+function renderAdminUsers(main){
+  let newUser={name:'',group:'Grupa 1',pin:''};
+  const addCard=el('div',{class:'card',style:'border-color:var(--p);border-width:2px'});
+  addCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;color:var(--p);margin-bottom:12px'},'➕ Dodaj pracownika'));
+  addCard.appendChild(inp('Imię i nazwisko',newUser.name,(v)=>newUser.name=v));
+  addCard.appendChild(select('Grupa',newUser.group,['Grupa 1','Grupa 2'],(v)=>newUser.group=v));
+  addCard.appendChild(inp('PIN (4 cyfry)',newUser.pin,(v)=>newUser.pin=v,{max:'4',placeholder:'np. 5678'}));
+  addCard.appendChild(btn('➕ Dodaj pracownika','btn-p full',()=>{
+    if(!newUser.name||!newUser.pin)return;
+    const u={id:uid(),name:newUser.name,role:'opiekun',pin:newUser.pin,group:newUser.group};
+    setState({users:S.users.concat([u])});
+    showToast('Dodano pracownika');render();
+  }));
+  main.appendChild(addCard);
+  S.users.forEach(u=>{
+    const card=el('div',{class:'card'});
+    const row=el('div',{style:'display:flex;align-items:center;gap:12px'});
+    row.appendChild(el('div',{class:'avatar'},u.name[0]));
+    const info=el('div',{style:'flex:1'});
+    info.innerHTML='<div style="font-weight:800">'+u.name+'</div><div style="font-size:12px;color:var(--lt)">'+(u.role==='admin'?'Dyrektor':'Opiekun · '+u.group)+' · PIN: '+u.pin+'</div>';
+    row.appendChild(info);
+    if(u.role!=='admin'){
+      const pinBtn=el('button',{style:'background:#EEF4FF;border:1px solid var(--p);color:var(--p);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer'},'🔑 PIN');
+      pinBtn.onclick=()=>{
+        const newPin=prompt('Nowy PIN dla '+u.name+' (4 cyfry):');
+        if(!newPin||newPin.length!==4||isNaN(newPin)){showToast('PIN musi mieć dokładnie 4 cyfry');return;}
+        setState({users:S.users.map(function(x){return x.id===u.id?Object.assign({},x,{pin:newPin}):x;})});
+        logChange('Zmiana PIN: '+u.name);
+        showToast('PIN zmieniony dla '+u.name);render();
+      };
+      const db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer'},'🗑️');
+      db.onclick=()=>{confirmDeleteTarget={type:'user',id:u.id,name:u.name};render();};
+      row.appendChild(pinBtn);
+      row.appendChild(db);
+    }
+    card.appendChild(row);
+    main.appendChild(card);
+  });
+}
+
+let logSearch='', logUserFilter='', logDateFrom='', logDateTo='';
+function renderAdminLog(main){
+  main.appendChild(el('div',{style:'font-weight:800;font-size:15px;margin-bottom:12px'},'📜 Historia zmian'));
+  const expLogRow=el('div',{style:'margin-bottom:14px'});
+  expLogRow.appendChild(btn('📥 Eksport historii do CSV','btn-pr',()=>exportChangeLog()));
+  main.appendChild(expLogRow);
+  // Filters
+  const fCard=el('div',{class:'card',style:'margin-bottom:14px'});
+  fCard.appendChild(el('div',{style:'font-weight:700;font-size:13px;margin-bottom:10px;color:var(--lt)'},'🔍 Filtruj'));
+  const srch=el('input',{class:'fi',placeholder:'Szukaj w treści zmian...',value:logSearch,style:'margin-bottom:8px'});
+  srch.oninput=()=>{logSearch=srch.value;refreshLog();};
+  fCard.appendChild(srch);
+  // User filter
+  const userWrap=el('div',{class:'row2'});
+  const uSel=el('select',{class:'fs'});
+  const users=[''].concat(S.changeLog.map(function(l){return l.user;}).filter(function(v,i,a){return a.indexOf(v)===i;}));
+  users.forEach(u=>{const o=el('option',{value:u},u||'Wszyscy pracownicy');if(u===logUserFilter)o.selected=true;uSel.appendChild(o);});
+  uSel.onchange=()=>{logUserFilter=uSel.value;refreshLog();};
+  const uWrap=el('div',{class:'fg',style:'flex:1'});
+  uWrap.appendChild(el('label',{class:'fl'},'Pracownik'));uWrap.appendChild(uSel);
+  // Date filters
+  const dfWrap=el('div',{class:'fg',style:'flex:1'});
+  dfWrap.appendChild(el('label',{class:'fl'},'Od daty'));
+  const dfIn=el('input',{class:'fi',type:'date',value:logDateFrom});
+  dfIn.oninput=()=>{logDateFrom=dfIn.value;refreshLog();};
+  dfWrap.appendChild(dfIn);
+  const dtWrap=el('div',{class:'fg',style:'flex:1'});
+  dtWrap.appendChild(el('label',{class:'fl'},'Do daty'));
+  const dtIn=el('input',{class:'fi',type:'date',value:logDateTo});
+  dtIn.oninput=()=>{logDateTo=dtIn.value;refreshLog();};
+  dtWrap.appendChild(dtIn);
+  userWrap.appendChild(uWrap);userWrap.appendChild(dfWrap);userWrap.appendChild(dtWrap);
+  fCard.appendChild(userWrap);
+  const clearBtn=btn('✕ Wyczyść filtry','btn-o btn-sm',()=>{logSearch='';logUserFilter='';logDateFrom='';logDateTo='';render();});
+  fCard.appendChild(clearBtn);
+  main.appendChild(fCard);
+  const listEl=el('div',{id:'log-list'});
+  main.appendChild(listEl);
+  refreshLog();
+  function refreshLog(){
+    const target=document.getElementById('log-list');
+    if(!target)return;
+    target.innerHTML='';
+    let logs=S.changeLog;
+    if(logSearch.trim()) logs=logs.filter(l=>l.action.toLowerCase().includes(logSearch.toLowerCase())||l.user.toLowerCase().includes(logSearch.toLowerCase()));
+    if(logUserFilter) logs=logs.filter(l=>l.user===logUserFilter);
+    if(logDateFrom) logs=logs.filter(l=>l.ts.slice(0,10)>=logDateFrom);
+    if(logDateTo) logs=logs.filter(l=>l.ts.slice(0,10)<=logDateTo);
+    target.appendChild(el('div',{style:'font-size:12px;color:var(--lt);margin-bottom:8px'},'Wyników: '+logs.length+' z '+S.changeLog.length));
+    if(!logs.length){target.appendChild(el('div',{class:'empty'},'<div class="empty-icon">📜</div><div>Brak wyników</div>'));return;}
+    logs.forEach(l=>{
+      const row=el('div',{style:'padding:8px 10px;border-bottom:1px solid var(--br);font-size:13px'});
+      row.innerHTML='<strong>'+l.user+'</strong> — '+l.action+'<div style="font-size:11px;color:var(--lt)">'+new Date(l.ts).toLocaleString('pl-PL')+'</div>';
+      target.appendChild(row);
+    });
+  }
+}
+
+
+// ── PICKUP NOTIFICATION (Powiadomienie o odbiorze dziecka) ────────────────────
+function renderChildPickup(main, child){
+  let form={date:today(),time:'',reason:'',contactName:'',contactPhone:'',notes:'',sigWorker:'',sigParent:''};
+  const card=el('div',{class:'card'});
+  card.appendChild(el('div',{style:'font-weight:800;font-size:15px;color:var(--p);margin-bottom:4px'},'📞 Powiadomienie o konieczności odbioru dziecka'));
+  card.appendChild(el('div',{style:'font-size:12px;color:var(--lt);margin-bottom:14px'},'Wypełnij gdy wzywasz rodziców po odbiór dziecka'));
+  const r1=el('div',{class:'row2'});
+  r1.appendChild(inp('Data',form.date,(v)=>form.date=v,{type:'date'}));
+  r1.appendChild(inp('Godzina kontaktu',form.time,(v)=>form.time=v,{placeholder:'np. 10:30'}));
+  card.appendChild(r1);
+  card.appendChild(textarea('Powód wezwania',form.reason,(v)=>form.reason=v,{placeholder:'np. Gorączka 38.5°C, wysypka...'}));
+  const r2=el('div',{class:'row2'});
+  r2.appendChild(inp('Osoba kontaktowana',form.contactName,(v)=>form.contactName=v,{placeholder:'Mama / Tata / opiekun'}));
+  r2.appendChild(inp('Numer telefonu',form.contactPhone,(v)=>form.contactPhone=v,{type:'tel'}));
+  card.appendChild(r2);
+  card.appendChild(textarea('Uwagi',form.notes,(v)=>form.notes=v,{placeholder:'Dodatkowe informacje...'}));
+  const r3=el('div',{class:'row2'});
+  r3.appendChild(inp('Podpis pracownika',form.sigWorker,(v)=>form.sigWorker=v));
+  r3.appendChild(inp('Podpis rodzica',form.sigParent,(v)=>form.sigParent=v));
+  card.appendChild(r3);
+  const btnRow=el('div',{class:'btn-row'});
+  btnRow.appendChild(btn('💾 Zapisz','btn-p',()=>{
+    if(!form.reason)return;
+    var entry=Object.assign({},form,{id:uid()});
+    setLog("pickupLog",child.id,[entry].concat(S.pickupLog[child.id]||[]));
+    logChange('Powiadomienie o odbiorze: '+child.name);
+    showToast('Powiadomienie zapisane');render();
+  }));
+  card.appendChild(btnRow);
+  main.appendChild(card);
+  const log=S.pickupLog[child.id]||[];
+  if(!log.length){main.appendChild(el('div',{class:'empty'},'<div class="empty-icon">📞</div><div>Brak powiadomień</div>'));return;}
+  log.forEach(e=>{
+    const wrap=el('div',{style:'position:relative;margin-bottom:8px'});
+    const d=el('div',{class:'log-entry',style:'border-left-color:var(--a);margin-bottom:0'});
+    d.innerHTML='<div class="le-date">'+e.date+' '+e.time+' · Kontakt: '+e.contactName+'</div>'+
+      '<div class="le-desc">'+e.reason+'</div>'+
+      (e.notes?'<div class="le-act">'+e.notes+'</div>':'')+
+      '<div style="font-size:11px;color:var(--lt);margin-top:4px">Pracownik: '+e.sigWorker+' · Rodzic: '+e.sigParent+'</div>';
+    const rowBtns=el('div',{style:'position:absolute;top:6px;right:6px;display:flex;gap:4px'});
+    const pb=btn('🖨️','btn-pr',()=>printPickup(child,e));
+    const db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:6px;padding:3px 7px;font-size:11px;font-weight:700;cursor:pointer'},'🗑️');
+    db.onclick=()=>{
+      if(!confirm('Usunąć to powiadomienie?'))return;
+      setLog("pickupLog",child.id,(S.pickupLog[child.id]||[]).filter(x=>x.id!==e.id));
+      showToast('Usunięto');render();
+    };
+    rowBtns.appendChild(pb);rowBtns.appendChild(db);
+    wrap.appendChild(d);wrap.appendChild(rowBtns);
+    main.appendChild(wrap);
+  });
+}
+
+function printPickup(child, e){
+  printDoc('Powiadomienie o odbiorze – '+child.name,
+    '<h1>Powiadomienie o Konieczno&sacute;ci Odbioru Dziecka</h1>'+
+    '<div class="fr"><div class="f"><div class="fl">Dziecko</div><div class="fv">'+child.name+'</div></div>'+
+    '<div class="f"><div class="fl">Grupa</div><div class="fv">'+child.group+'</div></div></div>'+
+    '<div class="fr"><div class="f"><div class="fl">Data</div><div class="fv">'+e.date+'</div></div>'+
+    '<div class="f"><div class="fl">Godzina kontaktu</div><div class="fv">'+e.time+'</div></div></div>'+
+    '<div class="fl">Pow&oacute;d wezwania</div><div class="fta">'+e.reason+'</div>'+
+    '<div class="fr"><div class="f"><div class="fl">Osoba kontaktowana</div><div class="fv">'+e.contactName+'</div></div>'+
+    '<div class="f"><div class="fl">Numer telefonu</div><div class="fv">'+e.contactPhone+'</div></div></div>'+
+    (e.notes?'<div class="fl">Uwagi</div><div class="fta">'+e.notes+'</div>':'')+
+    '<div class="sig-row"><div class="sig-box">'+e.sigWorker+'<br>Podpis pracownika</div><div class="sig-box">'+e.sigParent+'<br>Podpis rodzica</div></div>'
+  );
+}
+
+// ── CHILD NOTES (notatki służbowe o podejrzeniu krzywdzenia) ─────────────────
+function renderChildNotes(main, child){
+  var form={date:today(),type:'obserwacja',desc:'',actions:'',sig:S.currentUser.name};
+  const card=el('div',{class:'card'});
+  card.appendChild(el('div',{style:'font-weight:800;font-size:15px;color:var(--r);margin-bottom:4px'},'📝 Notatka służbowa'));
+  card.appendChild(el('div',{style:'font-size:12px;background:#FFF0F2;border-radius:8px;padding:8px 10px;margin-bottom:14px;color:var(--r)'},'⚠️ Zgodnie z Polityką ochrony dzieci — sporządź notatkę w przypadku podejrzenia krzywdzenia lub niepokojących sygnałów'));
+  const typeWrap=el('div',{class:'fg'});
+  typeWrap.appendChild(el('label',{class:'fl'},'Rodzaj notatki'));
+  const typeSelect=el('select',{class:'fs'});
+  ['Obserwacja niepokojąca','Podejrzenie zaniedbania','Podejrzenie przemocy fizycznej','Podejrzenie przemocy psychicznej','Rozmowa z rodzicem','Zgłoszenie do kierownika','Inne'].forEach(o=>{
+    const opt=el('option',{value:o},o);
+    typeSelect.appendChild(opt);
+  });
+  typeSelect.onchange=()=>form.type=typeSelect.value;
+  typeWrap.appendChild(typeSelect);
+  card.appendChild(typeWrap);
+  card.appendChild(inp('Data',form.date,(v)=>form.date=v,{type:'date'}));
+  card.appendChild(textarea('Opis sytuacji / obserwacji',form.desc,(v)=>form.desc=v,{placeholder:'Opisz dokładnie co zaobserwowano...'}));
+  card.appendChild(textarea('Podjęte działania',form.actions,(v)=>form.actions=v,{placeholder:'Jakie kroki zostały podjęte...'}));
+  card.appendChild(inp('Podpis pracownika',form.sig,(v)=>form.sig=v));
+  card.appendChild(btn('💾 Zapisz notatkę','btn-r',()=>{
+    if(!form.desc)return;
+    var entry=Object.assign({},form,{id:uid()});
+    setLog("childNotes",child.id,[entry].concat(S.childNotes[child.id]||[]));
+    logChange('Notatka służbowa: '+child.name);
+    showToast('Notatka zapisana');render();
+  }));
+  main.appendChild(card);
+  const notes=S.childNotes[child.id]||[];
+  if(!notes.length){main.appendChild(el('div',{class:'empty'},'<div class="empty-icon">📝</div><div>Brak notatek</div>'));return;}
+  notes.forEach(e=>{
+    const wrap=el('div',{style:'position:relative;margin-bottom:8px'});
+    const d=el('div',{class:'log-entry',style:'border-left-color:var(--r);margin-bottom:0'});
+    d.innerHTML='<div class="le-date">'+e.date+' · <strong style="color:var(--r)">'+e.type+'</strong> · '+e.sig+'</div>'+
+      '<div class="le-desc">'+e.desc+'</div>'+
+      (e.actions?'<div class="le-act">→ '+e.actions+'</div>':'');
+    const rowBtns=el('div',{style:'position:absolute;top:6px;right:6px;display:flex;gap:4px'});
+    const pb=btn('🖨️','btn-pr',()=>printNote(child,e));
+    const db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:6px;padding:3px 7px;font-size:11px;font-weight:700;cursor:pointer'},'🗑️');
+    db.onclick=()=>{
+      if(!confirm('Usunąć tę notatkę?'))return;
+      setLog("childNotes",child.id,(S.childNotes[child.id]||[]).filter(x=>x.id!==e.id));
+      showToast('Usunięto');render();
+    };
+    rowBtns.appendChild(pb);rowBtns.appendChild(db);
+    wrap.appendChild(d);wrap.appendChild(rowBtns);
+    main.appendChild(wrap);
+  });
+}
+
+function printNote(child, e){
+  printDoc('Notatka służbowa – '+child.name,
+    '<h1>Notatka S&lstrok;u&zdot;bowa</h1>'+
+    '<div class="fr"><div class="f"><div class="fl">Dziecko</div><div class="fv">'+child.name+'</div></div>'+
+    '<div class="f"><div class="fl">Grupa</div><div class="fv">'+child.group+'</div></div></div>'+
+    '<div class="fr"><div class="f"><div class="fl">Data</div><div class="fv">'+e.date+'</div></div>'+
+    '<div class="f"><div class="fl">Rodzaj notatki</div><div class="fv" style="color:red;font-weight:bold">'+e.type+'</div></div></div>'+
+    '<div class="fl">Opis sytuacji / obserwacji</div><div class="fta" style="min-height:80px">'+e.desc+'</div>'+
+    '<div class="fl">Podjęte działania</div><div class="fta">'+e.actions+'</div>'+
+    '<div class="sig-row"><div class="sig-box">'+e.sig+'<br>Podpis pracownika</div><div class="sig-box">Podpis kierownika/dyrektora</div></div>'+
+    '<div style="font-size:9pt;color:#888;margin-top:12px;text-align:center">Dokument sporządzony zgodnie z Polityką ochrony dzieci przed krzywdzeniem w Zesp&oacute;le &Zdot;&lstrok;obk&oacute;w T&eogon;czowy Domek</div>'
+  );
+}
+
+// ── DAILY CHECK-IN (Poranne przyjęcie dzieci) ────────────────────────────────
+// ── BULLETIN BOARD ────────────────────────────────────────────────────────────
+function renderBulletinBoard(main){
+  var groups=isAdmin()?['Grupa 1','Grupa 2']:[S.currentUser.group];
+  groups.forEach(function(grp){
+    var notes=(S.groupNotes&&S.groupNotes[grp])||[];
+    var card=el('div',{class:'card',style:'border-left:4px solid var(--a)'});
+    var hdr=el('div',{style:'font-weight:800;font-size:15px;margin-bottom:12px'});
+    hdr.textContent='📌 Tablica — '+grp;
+    card.appendChild(hdr);
+    var inputRow=el('div',{style:'display:flex;gap:8px;margin-bottom:12px'});
+    var ni=el('input',{class:'fi',style:'flex:1;margin-bottom:0'});
+    ni.placeholder='Wpisz ogłoszenie...';
+    var ab=btn('➕','btn-p btn-sm',function(){
+      var txt=ni.value.trim();
+      if(!txt)return;
+      var note={id:uid(),text:txt,author:S.currentUser.name,ts:new Date().toISOString()};
+      setState(function(s){
+        var gn=Object.assign({},s.groupNotes||{});
+        gn[grp]=[note].concat(gn[grp]||[]);
+        return Object.assign({},s,{groupNotes:gn});
+      });
+      logChange('Ogłoszenie ('+grp+'): '+txt.slice(0,40));
+      showToast('Ogłoszenie dodane');render();
+    });
+    ni.onkeydown=function(e){if(e.key==='Enter')ab.click();};
+    inputRow.appendChild(ni);inputRow.appendChild(ab);card.appendChild(inputRow);
+    if(!notes.length){
+      card.appendChild(el('div',{style:'font-size:13px;color:var(--lt);text-align:center;padding:8px'},'Brak ogłoszeń'));
+    }else{
+      notes.slice(0,8).forEach(function(note){
+        var row=el('div',{style:'display:flex;align-items:flex-start;gap:8px;padding:9px 10px;background:#FFFAF7;border-radius:10px;margin-bottom:6px;border:1px solid var(--br)'});
+        var info=el('div',{style:'flex:1'});
+        info.innerHTML='<div style="font-size:13px;font-weight:700">'+note.text+'</div>'+
+          '<div style="font-size:11px;color:var(--lt);margin-top:2px">'+note.author+' · '+note.ts.slice(0,10)+'</div>';
+        var db=el('button',{style:'background:none;border:none;color:var(--lt);cursor:pointer;font-size:18px;padding:0;flex-shrink:0'});
+        db.textContent='×';
+        db.onclick=function(){
+          confirmDelete('Usunąć ogłoszenie?',function(){
+            setState(function(s){
+              var gn=Object.assign({},s.groupNotes||{});
+              gn[grp]=(gn[grp]||[]).filter(function(n){return n.id!==note.id;});
+              return Object.assign({},s,{groupNotes:gn});
+            });
+            showToast('Usunięto');render();
+          });
+        };
+        row.appendChild(el('div',{style:'font-size:16px;flex-shrink:0'},'📌'));
+        row.appendChild(info);row.appendChild(db);
+        card.appendChild(row);
+      });
+    }
+    main.appendChild(card);
+  });
+}
+
+// ── BIRTHDAYS ─────────────────────────────────────────────────────────────────
+function renderBirthdays(main){
+  main.appendChild(el('div',{class:'section-title'},'🎂 Urodziny dzieci'));
+  var now=new Date();
+  var mm=now.getMonth()+1, dd=now.getDate();
+  var MONTHS=['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+  var kids=S.children.filter(function(c){return !!c.dob;});
+  var upcoming=kids.filter(function(c){
+    var p=c.dob.split('-');
+    var b=new Date(now.getFullYear(),parseInt(p[1])-1,parseInt(p[2]));
+    var diff=Math.ceil((b-now)/(86400000));
+    return diff>=0&&diff<=30;
+  }).length;
+  var statsRow=el('div',{style:'display:flex;gap:10px;margin-bottom:18px'});
+  var s1=el('div',{class:'stat-card',style:'flex:1'});
+  s1.innerHTML='<div class="stat-num" style="color:var(--p)">'+kids.length+'</div><div class="stat-lbl">Dzieci z datą urodzenia</div>';
+  var s2=el('div',{class:'stat-card',style:'flex:1'});
+  s2.innerHTML='<div class="stat-num" style="color:var(--a)">'+upcoming+'</div><div class="stat-lbl">Urodziny w 30 dni</div>';
+  statsRow.appendChild(s1);statsRow.appendChild(s2);main.appendChild(statsRow);
+  var byMonth={};
+  kids.forEach(function(c){
+    var p=c.dob.split('-');
+    var m=parseInt(p[1]),d=parseInt(p[2]);
+    if(!byMonth[m])byMonth[m]={};
+    if(!byMonth[m][d])byMonth[m][d]=[];
+    byMonth[m][d].push(c);
+  });
+  var order=[];for(var i=0;i<12;i++)order.push(((mm-1+i)%12)+1);
+  order.forEach(function(m){
+    if(!byMonth[m])return;
+    var mcard=el('div',{class:'card'});
+    var mhdr=el('div',{style:'font-weight:900;font-size:16px;color:var(--p);margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid var(--br)'});
+    mhdr.textContent='🗓️ '+MONTHS[m-1];
+    mcard.appendChild(mhdr);
+    var days=Object.keys(byMonth[m]).map(Number).sort(function(a,b){return a-b;});
+    days.forEach(function(d){
+      byMonth[m][d].forEach(function(c){
+        var yr=parseInt(c.dob.split('-')[0]);
+        var age=now.getFullYear()-yr;
+        var bday=new Date(now.getFullYear(),m-1,d);
+        var diff=Math.ceil((bday-now)/(86400000));
+        if(diff<0){bday=new Date(now.getFullYear()+1,m-1,d);diff=Math.ceil((bday-now)/(86400000));}
+        var isToday=m===mm&&d===dd;
+        var isSoon=diff<=7&&diff>=0;
+        var row=el('div',{style:'display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;margin-bottom:6px;background:'+(isToday?'#FFF8E1':isSoon?'#FFF0E6':'var(--bg)')+';border:1.5px solid '+(isToday?'var(--a)':isSoon?'var(--p)':'var(--br)')});
+        var av=el('div',{class:'ch-av',style:'background:'+childColor(c.id)+';width:38px;height:38px;font-size:13px;flex-shrink:0'});
+        av.textContent=initials(c.name);
+        var info=el('div',{style:'flex:1'});
+        info.innerHTML='<div style="font-weight:800;font-size:14px">'+c.name+'</div>'+
+          '<div style="font-size:12px;color:var(--lt)">'+d+'. '+MONTHS[m-1].toLowerCase()+' · '+c.group+' · kończy '+age+' lat'+(age===1?'o':age<5?'a':'')+'</div>';
+        var badge=el('div',{style:'flex-shrink:0;text-align:right'});
+        if(isToday)badge.innerHTML='<div style="font-size:22px">🎉</div><div style="font-size:10px;font-weight:800;color:var(--a)">Dziś!</div>';
+        else if(isSoon)badge.innerHTML='<div style="font-size:18px">🎈</div><div style="font-size:10px;font-weight:800;color:var(--p)">Za '+diff+' dni</div>';
+        else badge.innerHTML='<div style="font-size:12px;color:var(--lt)">za '+diff+' dni</div>';
+        row.appendChild(av);row.appendChild(info);row.appendChild(badge);
+        mcard.appendChild(row);
+      });
+    });
+    main.appendChild(mcard);
+  });
+  var noDob=S.children.filter(function(c){return !c.dob;});
+  if(noDob.length){
+    var warn=el('div',{class:'card',style:'border-color:var(--a);border-width:2px'});
+    warn.appendChild(el('div',{style:'font-weight:800;font-size:13px;color:var(--a);margin-bottom:8px'},'⚠️ Brak daty urodzenia ('+noDob.length+' dzieci)'));
+    noDob.forEach(function(c){warn.appendChild(el('div',{style:'font-size:13px;padding:4px 0;border-bottom:1px solid var(--br)'},c.name+' · '+c.group));});
+    main.appendChild(warn);
+  }
+}
+
+// ── PHOTO CONSENT ─────────────────────────────────────────────────────────────
+var CONSENT_TYPES=[
+  {key:'facebook',label:'Prywatna grupa na Facebooku',icon:'👥'},
+  {key:'app',label:'Aplikacja',icon:'📱'},
+  {key:'social',label:'Media społecznościowe',icon:'🌐'},
+  {key:'posters',label:'Plakaty, ulotki',icon:'🖼️'},
+];
+function renderPhotoConsent(main){
+  main.appendChild(el('div',{class:'section-title'},'📸 Zgody na publikację zdjęć'));
+  var syncRow=el('div',{style:'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px'});
+  syncRow.appendChild(el('div',{style:'font-size:13px;color:var(--lt)'},'Zgody na publikację zdjęć. Tylko dyrektor może zmieniać zaznaczenia.'));
+  var refreshBtn=btn('🔄 Odśwież','btn-o btn-sm',function(){
+    if(!sb){showToast('Brak połączenia z bazą danych');return;}
+    loadFromSupabase().then(function(remote){
+      if(remote){
+        var cu=S.currentUser;
+        S=Object.assign({},remote,{currentUser:cu});
+        ensureStateFields();
+        saveLocal(S);
+        showToast('Dane zaktualizowane!');
+        render();
+      }else{showToast('Brak danych w bazie');}
+    }).catch(function(e){showToast('Błąd połączenia');});
+  });
+  syncRow.appendChild(refreshBtn);
+  main.appendChild(syncRow);
+  var style=document.createElement('style');
+  style.textContent='.photo-table{width:100%;border-collapse:collapse;table-layout:fixed}.photo-table th{padding:8px 4px;text-align:center;font-weight:800;font-size:11px;color:var(--lt);border-bottom:2px solid var(--br);background:#FFFAF7}.photo-table th.name-col{text-align:left;padding-left:10px}.photo-table td{padding:8px 4px;text-align:center;border-bottom:1px solid var(--br);vertical-align:middle}.photo-table td.name-col{text-align:left;padding-left:10px;font-weight:700;font-size:13px}.photo-table tr:last-child td{border-bottom:none}.photo-table tr:hover td{background:#FFF8F4}.ccb{width:22px;height:22px;accent-color:var(--g);cursor:pointer}';
+  main.appendChild(style);
+  var groups=['Grupa 1','Grupa 2'];
+  groups.forEach(function(grp){
+    var kids=S.children.filter(function(c){return c.group===grp;})
+      .slice().sort(function(a,b){return a.name.localeCompare(b.name,'pl');});
+    var hdr=el('div',{style:'background:var(--p);color:#fff;border-radius:14px 14px 0 0;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:16px'});
+    hdr.innerHTML='<div style="font-weight:900;font-size:15px">'+grp+'</div><div style="font-size:12px;font-weight:700;opacity:.85">'+kids.length+' dzieci</div>';
+    main.appendChild(hdr);
+    var wrap=el('div',{style:'background:#fff;border-radius:0 0 16px 16px;border:1px solid var(--br);border-top:none;overflow:hidden;margin-bottom:14px'});
+    var table=el('table',{class:'photo-table'});
+    var thead=el('thead',{});var theadRow=el('tr',{});
+    theadRow.appendChild(el('th',{class:'name-col'},'Dziecko'));
+    CONSENT_TYPES.forEach(function(ct){
+      var th=el('th',{style:'width:62px;min-width:62px'});
+      th.title=ct.label;
+      th.innerHTML='<span style="font-size:20px">'+ct.icon+'</span>';
+      theadRow.appendChild(th);
+    });
+    thead.appendChild(theadRow);table.appendChild(thead);
+    var tbody=el('tbody',{});
+    kids.forEach(function(c){
+      var consent=(S.photoConsent&&S.photoConsent[c.id])||{};
+      var tr=el('tr',{});
+      var nameTd=el('td',{class:'name-col'});
+      var parts=c.name.trim().split(' ');
+      var shortName=parts.length>=2?parts[0]+' '+parts[1][0]+'.':c.name;
+      nameTd.innerHTML='<div style="display:flex;align-items:center;gap:8px"><div style="width:28px;height:28px;border-radius:50%;background:'+childColor(c.id)+';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;flex-shrink:0">'+initials(c.name)+'</div><span>'+shortName+'</span></div>';
+      tr.appendChild(nameTd);
+      CONSENT_TYPES.forEach(function(ct){
+        var td=el('td',{});
+        var cb=el('input',{type:'checkbox',class:'ccb'});
+        cb.checked=!!consent[ct.key];
+        if(!isAdmin())cb.disabled=true;
+        cb.onchange=function(){
+          if(!isAdmin()){cb.checked=!cb.checked;return;}
+          setState(function(s){
+            var pc=Object.assign({},s.photoConsent||{});
+            var cur=Object.assign({},pc[c.id]||{});
+            cur[ct.key]=cb.checked;
+            pc[c.id]=cur;
+            return Object.assign({},s,{photoConsent:pc});
+          });
+          logChange((cb.checked?'Zgoda':'Cofnięto zgodę')+': '+c.name+' ('+ct.label+')');
+          td.style.background=cb.checked?'#EAF7EF':'';
+        };
+        td.appendChild(cb);tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);wrap.appendChild(table);main.appendChild(wrap);
+  });
+}
+
+
+// ── OBŁOŻENIE / FREKWENCJA ────────────────────────────────────────────────────
+function renderOccupancy(main){
+  main.appendChild(el('div',{class:'section-title'},'📊 Obłożenie żłobka'));
+
+  var now = new Date();
+  var MONTHS = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec',
+                'Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+
+  // Capacity settings card (admin only)
+  if(isAdmin()){
+  var capCard = el('div',{class:'card'});
+  capCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:12px'},'⚙️ Pojemność grup'));
+  var capRow = el('div',{style:'display:flex;gap:12px;flex-wrap:wrap'});
+  ['Grupa 1','Grupa 2'].forEach(function(grp){
+    var cap = (S.capacity&&S.capacity[grp]) || 15;
+    var w = el('div',{style:'flex:1;min-width:120px'});
+    w.appendChild(el('div',{style:'font-size:12px;color:var(--lt);font-weight:700;margin-bottom:4px'},grp));
+    var input = el('input',{class:'fi',type:'number',style:'margin-bottom:0'});
+    input.value = cap;
+    input.min = 1; input.max = 50;
+    input.onchange = function(){
+      var newCap = Object.assign({},S.capacity||{});
+      newCap[grp] = parseInt(input.value)||cap;
+      setState({capacity:newCap});
+      render();
+    };
+    w.appendChild(input);
+    capRow.appendChild(w);
+  });
+  capCard.appendChild(capRow);
+  main.appendChild(capCard);
+  }
+
+  // Helper: is child active in a given month?
+  function isActiveInMonth(child, year, month){
+    var hist = (S.childHistory&&S.childHistory[child.id])||[];
+    // Find join date: first 'przyjęcie' or joinDate on child
+    var joinStr = child.joinDate || '';
+    var endStr = child.endDate || '';
+    // Override with history events
+    var accepts = hist.filter(function(e){return e.type==='przyjęcie'||e.type==='powrót';});
+    var leaves = hist.filter(function(e){return e.type==='odejście';});
+    if(accepts.length) joinStr = accepts.sort(function(a,b){return a.date.localeCompare(b.date);})[0].date;
+    if(leaves.length) endStr = leaves.sort(function(a,b){return b.date.localeCompare(a.date);})[0].date;
+    // If no history at all - treat as active now (legacy children)
+    if(!joinStr && !endStr && !hist.length) return true;
+    // Check if this month overlaps with [joinStr, endStr]
+    var monthStart = year+'-'+String(month).padStart(2,'0')+'-01';
+    var monthEnd = year+'-'+String(month).padStart(2,'0')+'-31';
+    if(joinStr && joinStr > monthEnd) return false;
+    if(endStr && endStr < monthStart) return false;
+    return true;
+  }
+
+  // Show 12 months (current month back 3 + forward 8)
+  var months = [];
+  for(var i=-3; i<=8; i++){
+    var d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    months.push({year:d.getFullYear(), month:d.getMonth()+1, label:MONTHS[d.getMonth()]+' '+d.getFullYear()});
+  }
+
+  // Summary stats for current month
+  var curYear = now.getFullYear(), curMonth = now.getMonth()+1;
+  var totalCap = ((S.capacity&&S.capacity['Grupa 1'])||15) + ((S.capacity&&S.capacity['Grupa 2'])||12);
+  var totalActive = S.children.filter(function(c){return isActiveInMonth(c,curYear,curMonth);}).length;
+  var totalFree = Math.max(0, totalCap - totalActive);
+
+  var summaryRow = el('div',{style:'display:flex;gap:10px;margin-bottom:18px'});
+  function statBox(num, lbl, color){
+    var b = el('div',{class:'stat-card',style:'flex:1'});
+    b.innerHTML='<div class="stat-num" style="color:'+color+'">'+num+'</div><div class="stat-lbl">'+lbl+'</div>';
+    return b;
+  }
+  summaryRow.appendChild(statBox(totalActive,'Dzieci w tym miesiącu','var(--p)'));
+  summaryRow.appendChild(statBox(totalFree,'Wolnych miejsc',totalFree>0?'var(--g)':'var(--r)'));
+  summaryRow.appendChild(statBox(totalCap,'Pojemność łącznie','var(--lt)'));
+  main.appendChild(summaryRow);
+
+  // Monthly table
+  var tableCard = el('div',{class:'card',style:'overflow-x:auto'});
+  tableCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:14px'},'📅 Obłożenie miesięczne'));
+
+  var table = el('table',{style:'width:100%;border-collapse:collapse;font-size:13px'});
+
+  // Header
+  var thead = el('thead',{});
+  var hrow = el('tr',{});
+  ['Miesiąc','Gr. 1','Gr. 2','Łącznie','Wolne'].forEach(function(h){
+    var th = el('th',{style:'padding:8px 6px;text-align:center;font-weight:800;font-size:11px;color:var(--lt);border-bottom:2px solid var(--br);white-space:nowrap'});
+    th.textContent = h;
+    if(h==='Miesiąc') th.style.textAlign='left';
+    hrow.appendChild(th);
+  });
+  thead.appendChild(hrow);
+  table.appendChild(thead);
+
+  var tbody = el('tbody',{});
+  months.forEach(function(m){
+    var isCurrent = m.year===curYear && m.month===curMonth;
+    var cap1 = (S.capacity&&S.capacity['Grupa 1'])||26;
+    var cap2 = (S.capacity&&S.capacity['Grupa 2'])||17;
+    var totalCapRow = cap1+cap2;
+    var active1 = S.children.filter(function(c){return c.group==='Grupa 1'&&isActiveInMonth(c,m.year,m.month);}).length;
+    var active2 = S.children.filter(function(c){return c.group==='Grupa 2'&&isActiveInMonth(c,m.year,m.month);}).length;
+    var activeTotal = active1+active2;
+    var free = Math.max(0, totalCapRow-activeTotal);
+    var pct = Math.round((activeTotal/totalCapRow)*100);
+    var pctColor = pct>=90?'var(--r)':pct>=70?'var(--a)':'var(--g)';
+
+    var tr = el('tr',{style:'background:'+(isCurrent?'#FFF0E6':'')});
+    function td(val, bold, color){
+      var t=el('td',{style:'padding:9px 6px;text-align:center;border-bottom:1px solid var(--br)'+(bold?';font-weight:800':'')+(color?';color:'+color:'')});
+      t.textContent=val; return t;
+    }
+    var monthTd = el('td',{style:'padding:9px 6px;border-bottom:1px solid var(--br);font-weight:'+(isCurrent?'800':'600')+(isCurrent?';color:var(--p)':'')});
+    monthTd.textContent = m.label+(isCurrent?' ◀':'');
+    tr.appendChild(monthTd);
+    tr.appendChild(td(active1+'/'+cap1, false, active1>=cap1?'var(--r)':''));
+    tr.appendChild(td(active2+'/'+cap2, false, active2>=cap2?'var(--r)':''));
+    tr.appendChild(td(activeTotal, true));
+    tr.appendChild(td(free, true, free===0?'var(--r)':free<=2?'var(--a)':'var(--g)'));
+
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  tableCard.appendChild(table);
+  main.appendChild(tableCard);
+
+  // Per-group detail for current month
+  var detailCard = el('div',{class:'card'});
+  detailCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:14px'},'👶 Dzieci w bieżącym miesiącu ('+MONTHS[curMonth-1]+')'));
+  ['Grupa 1','Grupa 2'].forEach(function(grp){
+    var cap = (S.capacity&&S.capacity[grp])||(grp==='Grupa 1'?26:17);
+    var kids = S.children.filter(function(c){return c.group===grp&&isActiveInMonth(c,curYear,curMonth);})
+      .sort(function(a,b){return a.name.localeCompare(b.name,'pl');});
+    var free = Math.max(0, cap-kids.length);
+    var grpHdr = el('div',{style:'display:flex;justify-content:space-between;align-items:center;background:var(--p);color:#fff;border-radius:10px;padding:8px 14px;margin-bottom:8px'});
+    grpHdr.innerHTML='<div style="font-weight:900">'+grp+'</div>'+
+      '<div style="font-size:13px;opacity:.9">'+kids.length+'/'+cap+' · <span style="color:'+(free===0?'#ffb3b3':'#b3ffcc')+'">'+free+' wolnych</span></div>';
+    detailCard.appendChild(grpHdr);
+    kids.forEach(function(c){
+      var row=el('div',{style:'display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--br);font-size:13px'});
+      var av=el('div',{style:'width:28px;height:28px;border-radius:50%;background:'+childColor(c.id)+';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;flex-shrink:0'});
+      av.textContent=initials(c.name);
+      row.appendChild(av);
+      row.appendChild(el('div',{style:'flex:1;font-weight:600'},c.name));
+      if(c.joinDate)row.appendChild(el('div',{style:'font-size:11px;color:var(--lt)'},'od '+c.joinDate));
+      detailCard.appendChild(row);
+    });
+    // Free slots
+    if(free>0){
+      var freeRow=el('div',{style:'padding:8px 4px;font-size:12px;color:var(--g);font-weight:700'});
+      freeRow.textContent='+ '+free+' wolne '+(free===1?'miejsce':free<5?'miejsca':'miejsc');
+      detailCard.appendChild(freeRow);
+    }
+    detailCard.appendChild(el('div',{style:'height:10px'}));
+  });
+  main.appendChild(detailCard);
+}
+
+
+// ── TERMINY ───────────────────────────────────────────────────────────────────
+function renderTerminy(main){
+  main.appendChild(el('div',{class:'section-title'},'📅 Terminy formularzy'));
+  var now=new Date();
+  var TYPES=[
+    {key:'obs',label:'Obserwacje dzieci'},
+    {key:'selfEval',label:'Samoocena pracownika'},
+    {key:'criteria',label:'Ocena kryteriów'},
+    {key:'diagnosis',label:'Diagnoza obszarów'}
+  ];
+  var allDl=[];
+  TYPES.forEach(function(t){
+    ((S.deadlines&&S.deadlines[t.key])||[]).forEach(function(dl){
+      allDl.push(Object.assign({},dl,{type:t.key,typeLbl:t.label}));
+    });
+  });
+  // Filter for current user if not admin
+  var visible=allDl.filter(function(dl){
+    if(!isAdmin()&&dl.type==='obs'&&dl.groupTarget&&dl.groupTarget!==S.currentUser.group)return false;
+    return true;
+  });
+  if(!visible.length){
+    main.appendChild(el('div',{class:'card'},'Brak zaplanowanych terminów.'));
+    if(isAdmin()) renderAdminTerminy(main);
+    return;
+  }
+  // Group by status
+  var overdue=[],soon=[],upcoming=[],future=[];
+  visible.forEach(function(dl){
+    if(!dl.date)return;
+    var d=new Date(dl.date);
+    var diff=Math.ceil((d-now)/(1000*60*60*24));
+    if(diff<0) overdue.push(dl);
+    else if(diff<=7) soon.push(dl);
+    else if(diff<=30) upcoming.push(dl);
+    else future.push(dl);
+  });
+  function renderBucket(list,label,color,icon){
+    if(!list.length)return;
+    var card=el('div',{class:'card',style:'border-left:4px solid '+color});
+    card.appendChild(el('div',{style:'font-weight:800;font-size:13px;color:'+color+';margin-bottom:10px'},icon+' '+label));
+    list.forEach(function(dl){
+      var d=new Date(dl.date);
+      var diff=Math.ceil((d-now)/(1000*60*60*24));
+      var txt=diff<0?'Przekroczono o '+Math.abs(diff)+' dni':diff===0?'Dziś!':'Za '+diff+' dni';
+      var row=el('div',{style:'display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--br)'});
+      row.innerHTML='<div><div style="font-weight:700;font-size:13px">'+dl.label+'</div>'+
+        '<div style="font-size:11px;color:var(--lt)">'+dl.typeLbl+(dl.groupTarget?' · '+dl.groupTarget:'')+'</div></div>'+
+        '<div style="text-align:right"><div style="font-weight:800;font-size:12px;color:'+color+'">'+txt+'</div>'+
+        '<div style="font-size:11px;color:var(--lt)">'+dl.date+'</div></div>';
+      card.appendChild(row);
+    });
+    main.appendChild(card);
+  }
+  renderBucket(overdue,'Przekroczone','var(--r)','🔴');
+  renderBucket(soon,'Wkrótce (7 dni)','var(--a)','🟡');
+  renderBucket(upcoming,'W tym miesiącu (30 dni)','var(--p)','🔵');
+  renderBucket(future,'Przyszłe','var(--lt)','⚪');
+  if(isAdmin()) renderAdminTerminy(main);
+}
+
+function renderAdminTerminy(main){
+  var TYPES=[
+    {key:'obs',label:'Obserwacje dzieci',hasGroup:true},
+    {key:'selfEval',label:'Samoocena pracownika',hasGroup:false},
+    {key:'criteria',label:'Ocena kryteriów',hasGroup:false},
+    {key:'diagnosis',label:'Diagnoza obszarów',hasGroup:false}
+  ];
+  var adminCard=el('div',{class:'card',style:'border-color:var(--p);border-width:2px;margin-top:14px'});
+  adminCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;color:var(--p);margin-bottom:14px'},'⚙️ Zarządzaj terminami'));
+  var nf={label:'',date:'',type:'obs',groupTarget:''};
+  adminCard.appendChild(inp('Nazwa terminu',nf.label,function(v){nf.label=v;},{placeholder:'np. Obserwacje I półrocze'}));
+  adminCard.appendChild(inp('Data terminu',nf.date,function(v){nf.date=v;},{type:'date'}));
+  var typeWrap=el('div',{class:'fg'});
+  typeWrap.appendChild(el('label',{class:'fl'},'Rodzaj'));
+  var typeSel=el('select',{class:'fs'});
+  TYPES.forEach(function(t){var o=el('option',{value:t.key},t.label);typeSel.appendChild(o);});
+  typeSel.onchange=function(){nf.type=typeSel.value;};
+  typeWrap.appendChild(typeSel);adminCard.appendChild(typeWrap);
+  var grpWrap=el('div',{class:'fg'});
+  grpWrap.appendChild(el('label',{class:'fl'},'Grupa (opcjonalnie)'));
+  var grpSel=el('select',{class:'fs'});
+  [['','Obie grupy'],['Grupa 1','Grupa 1'],['Grupa 2','Grupa 2']].forEach(function(g){
+    var o=el('option',{value:g[0]},g[1]);grpSel.appendChild(o);
+  });
+  grpSel.onchange=function(){nf.groupTarget=grpSel.value;};
+  grpWrap.appendChild(grpSel);adminCard.appendChild(grpWrap);
+  adminCard.appendChild(btn('➕ Dodaj termin','btn-p',function(){
+    if(!nf.label.trim()||!nf.date){showToast('Wypełnij nazwę i datę');return;}
+    var entry={id:uid(),label:nf.label,date:nf.date,groupTarget:nf.groupTarget};
+    var nd=Object.assign({},S.deadlines||{});
+    nd[nf.type]=(nd[nf.type]||[]).concat([entry]);
+    setState({deadlines:nd});
+    logChange('Dodano termin: '+nf.label);showToast('Termin dodany');render();
+  }));
+  main.appendChild(adminCard);
+  // List existing
+  TYPES.forEach(function(type){
+    var list=(S.deadlines&&S.deadlines[type.key])||[];
+    if(!list.length)return;
+    var lCard=el('div',{class:'card',style:'margin-top:10px'});
+    lCard.appendChild(el('div',{style:'font-weight:800;font-size:13px;margin-bottom:10px'},type.label));
+    list.forEach(function(dl,i){
+      var row=el('div',{style:'display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--br)'});
+      row.innerHTML='<div><div style="font-size:13px;font-weight:700">'+dl.label+'</div>'+
+        '<div style="font-size:11px;color:var(--lt)">'+dl.date+(dl.groupTarget?' · '+dl.groupTarget:'')+'</div></div>';
+      var db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer'},'🗑️');
+      db.onclick=function(){
+        confirmDelete('Usunąć ten termin?',function(){
+          var nd=Object.assign({},S.deadlines||{});
+          nd[type.key]=(nd[type.key]||[]).filter(function(_,j){return j!==i;});
+          setState({deadlines:nd});
+          showToast('Usunięto');render();
+        });
+      };
+      row.appendChild(db);lCard.appendChild(row);
+    });
+    main.appendChild(lCard);
+  });
+}
+
+
+// ── STATE SAFETY ─────────────────────────────────────────────────────────────
+function ensureStateFields(){
+  if(!S.observations)S.observations={};
+  if(!S.healthLog)S.healthLog={};
+  if(!S.behaviorLog)S.behaviorLog={};
+  if(!S.accidents)S.accidents={};
+  if(!S.dailyLogs)S.dailyLogs={};
+  if(!S.employeeEvals)S.employeeEvals={};
+  if(!S.employeeDiagnosis)S.employeeDiagnosis={};
+  if(!S.notifications)S.notifications=[];
+  if(!S.changeLog)S.changeLog=[];
+  if(!S.pickupLog)S.pickupLog={};
+  if(!S.childHistory)S.childHistory={};
+  if(!S.childNotes)S.childNotes={};
+  if(!S.photoConsent)S.photoConsent={};
+  if(!S.groupNotes)S.groupNotes={};
+  if(!S.capacity)S.capacity={'Grupa 1':26,'Grupa 2':17};
+  if(!S.deadlines)S.deadlines={obs:[],selfEval:[],criteria:[],diagnosis:[]};
+  if(!S.groups)S.groups=['Grupa 1','Grupa 2'];
+}
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+function applyRemote(remote){
+  var cu=S.currentUser;
+  S=Object.assign({},remote,{currentUser:cu});
+  ensureStateFields();
+  var bi=INIT_USERS.map(function(u){return u.id;});
+  S.users=INIT_USERS.concat((S.users||[]).filter(function(u){return !bi.includes(u.id);}));
+  if(!S.children||S.children.length===0){S.children=INIT_CHILDREN.slice();}
+  else{S.children=S.children.map(function(e){var f=INIT_CHILDREN.find(function(c){return c.id===e.id;});return f?Object.assign({},e,{pesel:f.pesel||e.pesel,dob:f.dob||e.dob}):e;});}
+  saveLocal(S);
+}
+
+function boot(){
+  // Replace loading placeholder with real logo
+  var loadingLogo=document.getElementById('loading-logo');
+  if(loadingLogo&&typeof LOGO!=='undefined'){
+    var img=document.createElement('img');
+    img.src=LOGO; img.style.cssText='height:90px;width:auto;border-radius:20px';
+    loadingLogo.innerHTML=''; loadingLogo.appendChild(img);
+  }
+  try{var local=load();if(local){S=local;ensureStateFields();}}catch(e){console.warn('Local load:',e);}
+  initSupabase();
+  function doRender(){try{render();}catch(e){
+    console.error('Render error:',e);
+    var app=document.getElementById('app');
+    if(app)app.innerHTML='<div style="padding:20px;color:red;font-family:sans-serif">Błąd: '+e.message+'<br><br><button onclick="location.reload()" style="padding:8px 16px;font-size:14px">Odśwież stronę</button></div>';
+  }}
+  if(sb){
+    loadFromSupabase().then(function(remote){
+      if(remote){applyRemote(remote);}
+      else{save(S);}
+      try{subscribeRealtime();}catch(e){console.warn('Realtime:',e);}
+      doRender();
+    }).catch(function(e){
+      console.warn('Supabase failed:',e);
+      ensureStateFields();
+      doRender();
+    });
+  }else{ensureStateFields();doRender();}
+}
+window.addEventListener('error',function(e){
+  console.error('Global error:',e.message);
+  var app=document.getElementById('app');
+  if(app&&!app.textContent.trim()){app.innerHTML='<div style="padding:20px;color:red;font-family:sans-serif">Błąd: '+e.message+'<br><button onclick="location.reload()" style="margin-top:10px;padding:8px 16px">Odśwież</button></div>';}
+});
+var _bootCalled=false;
+function safeBoot(){
+  if(_bootCalled)return;
+  _bootCalled=true;
+  try{boot();}catch(e){
+    console.error('Boot failed:',e);
+    var app=document.getElementById('app');
+    if(app)app.innerHTML='<div style="padding:20px;text-align:center;font-family:sans-serif"><div style="font-size:48px;margin-bottom:16px">🌈</div><div style="font-weight:800;font-size:18px;color:#D4845A;margin-bottom:8px">Tęczowy Domek</div><div style="color:red;font-size:13px;margin-bottom:16px">Błąd: '+e.message+'</div><button onclick="location.reload()" style="padding:10px 20px;font-size:14px;font-weight:700;border:none;border-radius:10px;background:#D4845A;color:#fff;cursor:pointer">Spróbuj ponownie</button></div>';
+  }
+}
+// Timeout - boot without Supabase after 6 seconds
+var _sbTimeout=setTimeout(function(){
+  console.warn('Supabase CDN timeout - booting offline');
+  safeBoot();
+},6000);
+var sbScript=document.createElement('script');
+sbScript.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+sbScript.onload=function(){clearTimeout(_sbTimeout);safeBoot();};
+sbScript.onerror=function(){clearTimeout(_sbTimeout);console.warn('Supabase CDN failed');safeBoot();};
+document.head.appendChild(sbScript);
+</script>
+<div id="del-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#fff;border-radius:20px;padding:24px;max-width:320px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+    <div style="font-size:36px;margin-bottom:10px">🗑️</div>
+    <div id="del-modal-msg" style="font-size:14px;font-weight:700;margin-bottom:18px;color:#3D2C2C">Czy na pewno usunąć?</div>
+    <div style="display:flex;gap:10px">
+      <button style="flex:1;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;background:#F5EDE8;color:#9B8A84;font-family:inherit" onclick="closeDelModal()">Anuluj</button>
+      <button id="del-modal-ok" style="flex:1;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;background:#E05454;color:#fff;font-family:inherit">Usuń</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+function confirmDelete(msg,onYes){
+  document.getElementById('del-modal-msg').textContent=msg;
+  var m=document.getElementById('del-modal');
+  m.style.display='flex';
+  document.getElementById('del-modal-ok').onclick=function(){m.style.display='none';onYes();};
+}
+function closeDelModal(){document.getElementById('del-modal').style.display='none';}
+
+
+var _addChildForm = {name:'',pesel:'',dob:'',group:'Grupa 1',joinDate:'',endDate:'',note:''};
+
+function showAddChildModal(){
+  _addChildForm = {
+    name:'', pesel:'', dob:'', 
+    group: (window.S&&S.currentUser&&S.currentUser.group)||'Grupa 1',
+    joinDate: today(), endDate:'', note:''
+  };
+  renderAddChildForm();
+  document.getElementById('add-child-modal').style.display='flex';
+  _attachAddChildHandlers();
+}
+
+function renderAddChildForm(){
+  var f = _addChildForm;
+  var container = document.getElementById('add-child-form');
+  container.innerHTML = '';
+
+  function field(label, key, type, placeholder){
+    var wrap = document.createElement('div');
+    wrap.style.marginBottom='12px';
+    var lbl = document.createElement('label');
+    lbl.style.cssText='display:block;font-size:12px;font-weight:700;color:#9B8A84;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px';
+    lbl.textContent = label;
+    var inp = document.createElement('input');
+    inp.style.cssText='width:100%;padding:10px 12px;border:2px solid #EDE0D8;border-radius:10px;font-size:14px;font-family:inherit;background:#FFFAF7;box-sizing:border-box';
+    inp.type = type||'text';
+    inp.value = f[key]||'';
+    if(placeholder) inp.placeholder = placeholder;
+    inp.oninput = function(){
+      f[key]=inp.value;
+      // Auto-fill DOB from PESEL
+      if(key==='pesel'&&inp.value.length>=6){
+        try{
+          var p=inp.value,yy=parseInt(p.slice(0,2)),mm=parseInt(p.slice(2,4)),dd=parseInt(p.slice(4,6)),yr,rm=mm;
+          if(mm>=21&&mm<=32){rm=mm-20;yr=2000+yy;}else if(mm>=1&&mm<=12){rm=mm;yr=1900+yy;}
+          if(yr){f.dob=yr+'-'+String(rm).padStart(2,'0')+'-'+String(dd).padStart(2,'0');renderAddChildForm();}
+        }catch(e){}
+      }
+    };
+    wrap.appendChild(lbl);wrap.appendChild(inp);
+    return wrap;
+  }
+
+  container.appendChild(field('Imię i nazwisko','name','text','np. Jan Kowalski'));
+  container.appendChild(field('PESEL','pesel','text','11 cyfr — DOB wypełni się automatycznie'));
+  container.appendChild(field('Data urodzenia','dob','date'));
+
+  // Group select (admin sees both)
+  var gWrap = document.createElement('div');
+  gWrap.style.marginBottom='12px';
+  var gLbl = document.createElement('label');
+  gLbl.style.cssText='display:block;font-size:12px;font-weight:700;color:#9B8A84;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px';
+  gLbl.textContent='Grupa';
+  var gSel = document.createElement('select');
+  gSel.style.cssText='width:100%;padding:10px 12px;border:2px solid #EDE0D8;border-radius:10px;font-size:14px;font-family:inherit;background:#FFFAF7';
+  var groups = (window.S&&S.currentUser&&S.currentUser.role==='admin')?['Grupa 1','Grupa 2']:[S.currentUser.group];
+  groups.forEach(function(g){var o=document.createElement('option');o.value=g;o.textContent=g;if(g===f.group)o.selected=true;gSel.appendChild(o);});
+  gSel.onchange=function(){f.group=gSel.value;};
+  gWrap.appendChild(gLbl);gWrap.appendChild(gSel);
+  container.appendChild(gWrap);
+
+  // Separator
+  var sep = document.createElement('div');
+  sep.style.cssText='font-size:12px;font-weight:700;color:var(--p);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #EDE0D8;padding-top:12px';
+  sep.textContent='📅 Okres pobytu';
+  container.appendChild(sep);
+
+  container.appendChild(field('Data przyjęcia (od)','joinDate','date'));
+  container.appendChild(field('Data zakończenia (do, opcjonalnie)','endDate','date'));
+  container.appendChild(field('Notatka (opcjonalnie)','note','text','np. przeniesienie z innej placówki'));
+}
+
+function closeAddChildModal(){
+  document.getElementById('add-child-modal').style.display='none';
+}
+
+// Attach button handlers when modal is opened
+function _attachAddChildHandlers(){
+  var cancelBtn=document.getElementById('add-child-cancel');
+  var saveBtn=document.getElementById('add-child-save');
+  if(cancelBtn) cancelBtn.onclick=closeAddChildModal;
+  if(saveBtn) saveBtn.onclick=function(){
+  var f = _addChildForm;
+  if(!f.name.trim()){alert('Wpisz imię i nazwisko');return;}
+  var child = {
+    id:uid(), name:f.name.trim(), dob:f.dob, group:f.group,
+    pesel:f.pesel, joinDate:f.joinDate, endDate:f.endDate,
+    address:'', motherName:'', motherPhone:'',
+    fatherName:'', fatherPhone:'', allergies:'',
+    chronicDiseases:'', permanentMeds:'', extraInfo:''
+  };
+  setState({children:S.children.concat([child])});
+  // Auto-create first history entry
+  if(f.joinDate){
+    var hist = (S.childHistory[child.id]||[]).concat([{
+      id:uid(), date:f.joinDate, type:'przyjęcie',
+      group:f.group, note:f.note||'', author:S.currentUser.name
+    }]);
+    setLog('childHistory',child.id,hist);
+  }
+  if(f.endDate){
+    var hist2 = (S.childHistory[child.id]||[]).concat([{
+      id:uid(), date:f.endDate, type:'odejście',
+      group:f.group, note:f.note||'', author:S.currentUser.name
+    }]);
+    setLog('childHistory',child.id,hist2);
+  }
+  logChange('Dodano dziecko: '+f.name);
+  showToast('Dodano: '+f.name);
+  closeAddChildModal();
+  render();
+  };
+}
+
+</script>
+</body>
+</html>

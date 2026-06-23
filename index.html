@@ -145,7 +145,13 @@ body{font-family:'Nunito',Arial,sans-serif;background:#F7F9FF;color:#1A2540;font
 </head>
 <body>
 
-<div id="app"></div>
+<div id="app"><div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(160deg,#FFF0E6,#FDF6F0);font-family:sans-serif;padding:20px;text-align:center">
+<div id="loading-logo" style="height:90px;width:90px;border-radius:20px;background:#EDE0D8;margin-bottom:20px;display:flex;align-items:center;justify-content:center;font-size:40px">🌈</div>
+<div style="font-weight:900;font-size:22px;color:#D4845A;margin-bottom:6px">Tęczowy Domek</div>
+<div style="font-size:13px;color:#9B8A84;margin-bottom:24px">System Zarządzania Żłobkiem</div>
+<div style="display:flex;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:#D4845A;animation:pulse 1.2s infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#D4845A;animation:pulse 1.2s .4s infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#D4845A;animation:pulse 1.2s .8s infinite"></div></div>
+<style>@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}</style>
+</div></div>
 
 <script>
 // ── SUPABASE ─────────────────────────────────────────────────────────────────
@@ -778,17 +784,4 @@ function renderChildObs(main, child){
     const header=el('div',{style:'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'});
     header.innerHTML='<div><div style="font-weight:800">Obserwacja '+(obs.length-i)+'</div><div style="font-size:12px;color:var(--lt)">'+o.date+' · '+(ag?ag.label:'')+(o.schoolYear?' · '+o.schoolYear:'')+'</div></div>';
     const right=el('div',{style:'display:flex;align-items:center;gap:8px'});
-    right.innerHTML='<div style="text-align:right"><div style="font-size:12px;color:var(--lt)">Wypełniono</div><div style="font-weight:800;color:var(--p)">'+filled+'/'+total+'</div></div>';
-    const pb=btn('🖨️','btn-pr',()=>printObs(child,o));
-    const eb=btn('✏️','btn-o btn-sm',()=>{obsFormData=Object.assign({},o);obsFormActive=true;obsEditId=o.id;render();});
-    const db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:700;cursor:pointer'},'🗑️');
-    db.onclick=function(){confirmDelete('Usunąć tę obserwację?',function(){setState(function(s){setLog("observations",child.id,(S.observations[child.id]||[]).filter(function(x){return x.id!==o.id;}));return S;});logChange('Usunięto obserwację: '+child.name);showToast('Obserwacja usunięta');render();});};
-    right.appendChild(pb);right.appendChild(eb);right.appendChild(db);
-    header.appendChild(right);
-    card.appendChild(header);
-    if(o.notes)card.appendChild(el('div',{style:'font-size:12px;color:var(--lt);font-style:italic'},'"'+o.notes+'"'));
-    main.appendChild(card);
-  });
-}
-
-function renderObsForm(main, 
+    right.innerHTML='<div style="text-align:right"><div style="font-size:12px;color:var(--lt)">Wy

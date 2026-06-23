@@ -1039,7 +1039,10 @@ function renderStaff(main){
     tabs.appendChild(t);
   });
   main.appendChild(tabs);
-  const emps=S.users.filter(u=>u.role==='opiekun');
+  // Deduplicate users by id
+  var seen={};
+  var uniqueUsers=S.users.filter(function(u){if(seen[u.id])return false;seen[u.id]=true;return true;});
+  const emps=uniqueUsers.filter(u=>u.role==='opiekun');
   emps.forEach(emp=>{
     const item=el('div',{class:'acc-item'});
     const trigger=el('button',{class:'acc-trigger'},'👤 '+emp.name+' · '+emp.group+' <span>▼</span>');

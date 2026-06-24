@@ -250,7 +250,7 @@ function setState(patch){
 }
 function setLog(key,id,arr){var p={};p[key]=Object.assign({},S[key]||{});p[key][id]=arr;setState(p);}
 function isAdmin(){return S.currentUser&&S.currentUser.role==='admin'}
-function visibleChildren(){return isAdmin()?S.children:S.children.filter(c=>c.group===S.currentUser.group)}
+function visibleChildren(){return isAdmin()?S.children:S.children.filter(function(c){return c.group===S.currentUser.group;});}
 function logChange(action){if(!S.currentUser)return;setState({changeLog:[{ts:new Date().toISOString(),user:S.currentUser.name,action:action}].concat(S.changeLog).slice(0,200)})}
 
 // ── PRINT ─────────────────────────────────────────────────────────────────────
@@ -513,8 +513,8 @@ function renderHome(main){
   // Birthday notification
   (function(){
     var now=new Date(),mm=now.getMonth()+1,dd=now.getDate();
-    var todayKids=S.children.filter(function(c){if(!c.dob)return false;var p=c.dob.split('-');return parseInt(p[1])===mm&&parseInt(p[2])===dd;});
-    var soonKids=S.children.filter(function(c){if(!c.dob)return false;var p=c.dob.split('-');var b=new Date(now.getFullYear(),parseInt(p[1])-1,parseInt(p[2]));var diff=Math.ceil((b-now)/86400000);return diff>0&&diff<=7;});
+    var todayKids=visibleChildren().filter(function(c){if(!c.dob)return false;var p=c.dob.split('-');return parseInt(p[1])===mm&&parseInt(p[2])===dd;});
+    var soonKids=visibleChildren().filter(function(c){if(!c.dob)return false;var p=c.dob.split('-');var b=new Date(now.getFullYear(),parseInt(p[1])-1,parseInt(p[2]));var diff=Math.ceil((b-now)/86400000);return diff>0&&diff<=7;});
     var bdayCard=el('div',{class:'card',style:todayKids.length?'background:linear-gradient(135deg,#FFF0E6,#FFF8E1);border-color:var(--a);border-width:2px':''});
     var bdayRow=el('div',{style:'display:flex;align-items:center;gap:10px'});
     bdayRow.innerHTML='<div style="font-size:32px">'+(todayKids.length?'🎉':soonKids.length?'🎈':'🎂')+'</div>';
@@ -669,7 +669,7 @@ function renderChildren(main){
     return card;
   }
   groups.forEach(function(grp){
-    const kids=S.children.filter(function(c){return c.group===grp;})
+    const kids=visibleChildren().filter(function(c){return c.group===grp;})
       .slice().sort(function(a,b){return a.name.localeCompare(b.name,'pl');});
     const hdr=el('div',{style:'display:flex;justify-content:space-between;align-items:center;background:var(--p);color:#fff;border-radius:14px;padding:10px 16px;margin-bottom:10px'});
     hdr.innerHTML='<div style="font-weight:900;font-size:15px">'+grp+'</div><div style="font-size:13px;font-weight:700;opacity:.85">'+kids.length+' dzieci</div>';
@@ -710,16 +710,35 @@ function renderChildView(main, child){
 }
 
 function renderChildInfo(main, child){
-  var form=Object.assign({},child);
-  const card=el('div',{class:'card'});
+  var card=el('div',{class:'card'});
   card.appendChild(el('div',{style:'font-weight:800;font-size:15px;color:var(--p);margin-bottom:14px'},'📋 Karta Informacyjna Dziecka'));
+  if(!isAdmin()){
+    // Read-only for non-admins
+    var fields=[['Imię i nazwisko',child.name],['Data urodzenia',child.dob||'—'],['PESEL',child.pesel||'—'],['Grupa',child.group]];
+    fields.forEach(function(f){
+      var row=el('div',{style:'margin-bottom:12px'});
+      row.innerHTML='<div style="font-size:11px;color:var(--lt);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">'+f[0]+'</div>'+
+        '<div style="font-size:15px;font-weight:600">'+f[1]+'</div>';
+      card.appendChild(row);
+    });
+    main.appendChild(card);
+    return;
+  }
+  // Admin - editable
+  var form=Object.assign({},child);
   [['name','Imię i nazwisko'],['dob','Data urodzenia','date'],['pesel','PESEL']].forEach(function(f){
     card.appendChild(inp(f[1],form[f[0]]||'',function(v){form[f[0]]=v;},{type:f[2]||'text'}));
   });
+  var sep=el('div',{style:'font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;border-top:1px solid var(--br);padding-top:10px'});
+  sep.textContent='📅 Okres uczęszczania';
+  card.appendChild(sep);
+  card.appendChild(inp('Data przyjęcia (od)',form.joinDate||'',function(v){form.joinDate=v;},{type:'date'}));
+  card.appendChild(inp('Data zakończenia (do)',form.endDate||'',function(v){form.endDate=v;},{type:'date'}));
   card.appendChild(btn('💾 Zapisz kartę','btn-p',function(){
-    setState({children:S.children.map(function(c){return c.id===child.id?Object.assign({},c,{name:form.name,dob:form.dob,pesel:form.pesel}):c;})});
-    logChange('Zaktualizowano kartę: '+child.name);
-    showToast('Karta zapisana');render();
+    setState({children:S.children.map(function(c){
+      return c.id===child.id?Object.assign({},c,{name:form.name,dob:form.dob,pesel:form.pesel,joinDate:form.joinDate||'',endDate:form.endDate||''}):c;
+    })});
+    logChange('Zaktualizowano kartę: '+child.name);showToast('Karta zapisana');render();
   }));
   main.appendChild(card);
 }
@@ -1509,7 +1528,7 @@ function renderBirthdays(main){
   main.appendChild(el('div',{class:'section-title'},'🎂 Urodziny dzieci'));
   var now=new Date(),mm=now.getMonth()+1,dd=now.getDate();
   var MONTHS=['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
-  var kids=S.children.filter(function(c){return !!c.dob;});
+  var kids=visibleChildren().filter(function(c){return !!c.dob;});
   var byMonth={};
   kids.forEach(function(c){
     var p=c.dob.split('-'),m=parseInt(p[1]),d=parseInt(p[2]);
@@ -1559,8 +1578,9 @@ function renderPhotoConsent(main){
     }).catch(function(){showToast('Błąd połączenia');});
   });
   syncRow.appendChild(rb);main.appendChild(syncRow);
-  ['Grupa 1','Grupa 2'].forEach(function(grp){
-    var kids=S.children.filter(function(c){return c.group===grp;}).slice().sort(function(a,b){return a.name.localeCompare(b.name,'pl');});
+  var photoGroups=isAdmin()?['Grupa 1','Grupa 2']:[(S.currentUser&&S.currentUser.group)||'Grupa 1'];
+  photoGroups.forEach(function(grp){
+    var kids=visibleChildren().filter(function(c){return c.group===grp;}).slice().sort(function(a,b){return a.name.localeCompare(b.name,'pl');});
     var hdr=el('div',{style:'background:var(--p);color:#fff;border-radius:14px 14px 0 0;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:16px'});
     hdr.innerHTML='<div style="font-weight:900;font-size:15px">'+grp+'</div><div style="font-size:12px;opacity:.85">'+kids.length+' dzieci</div>';
     main.appendChild(hdr);

@@ -1240,7 +1240,7 @@ function renderAdminChildren(main){
   const addCard=el('div',{class:'card',style:'border-color:var(--g);border-width:2px'});
   addCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;color:var(--g);margin-bottom:12px'},'➕ Dodaj nowe dziecko'));
   addCard.appendChild(inp('Imię i nazwisko',newChild.name,function(v){return newChild.name=v;},{placeholder:'np. Jan Kowalski'}));
-  addCard.appendChild(select('Grupa',newChild.group,['Grupa 1','Grupa 2'],function(v){newChild.group=v;});
+  addCard.appendChild(select('Grupa',newChild.group,['Grupa 1','Grupa 2'],function(v){newChild.group=v;}));
   addCard.appendChild(inp('Data urodzenia (opcjonalnie)',newChild.dob,function(v){return newChild.dob=v;},{type:'date'}));
   addCard.appendChild(btn('➕ Dodaj dziecko','btn-g full',function(){
     if(!newChild.name.trim())return;
@@ -1270,7 +1270,7 @@ function renderAdminChildren(main){
   });
   main.appendChild(tabs);
   const srch=el('input',{class:'fi',placeholder:'🔍 Szukaj...',value:adminSearch,style:'margin-bottom:12px'});
-  srch.oninput=function(){{adminSearch=srch.value;render();};
+  srch.oninput=function(){adminSearch=srch.value;render();};
   main.appendChild(srch);
   const filtered=S.children.filter(function(c){return (adminFilter==='Wszystkie'||c.group===adminFilter)&&c.name.toLowerCase().indexOf(adminSearch.toLowerCase())>-1;});
   if(!filtered.length){main.appendChild(el('div',{class:'empty'},'<div class="empty-icon">👶</div><div>Brak wyników</div>'));return;}
@@ -1290,8 +1290,8 @@ function renderAdminUsers(main){
   let newUser={name:'',group:'Grupa 1',pin:''};
   const addCard=el('div',{class:'card',style:'border-color:var(--p);border-width:2px'});
   addCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;color:var(--p);margin-bottom:12px'},'➕ Dodaj pracownika'));
-  addCard.appendChild(inp('Imię i nazwisko',newUser.name,function(v){newUser.name=v;});
-  addCard.appendChild(select('Grupa',newUser.group,['Grupa 1','Grupa 2'],function(v){newUser.group=v;});
+  addCard.appendChild(inp('Imię i nazwisko',newUser.name,function(v){newUser.name=v;}));
+  addCard.appendChild(select('Grupa',newUser.group,['Grupa 1','Grupa 2'],function(v){newUser.group=v;}));
   addCard.appendChild(inp('PIN (4 cyfry)',newUser.pin,function(v){return newUser.pin=v;},{max:'4',placeholder:'np. 5678'}));
   addCard.appendChild(btn('➕ Dodaj pracownika','btn-p full',function(){
     if(!newUser.name||!newUser.pin)return;
@@ -1336,26 +1336,26 @@ function renderAdminLog(main){
   const fCard=el('div',{class:'card',style:'margin-bottom:14px'});
   fCard.appendChild(el('div',{style:'font-weight:700;font-size:13px;margin-bottom:10px;color:var(--lt)'},'🔍 Filtruj'));
   const srch=el('input',{class:'fi',placeholder:'Szukaj w treści zmian...',value:logSearch,style:'margin-bottom:8px'});
-  srch.oninput=function(){{logSearch=srch.value;refreshLog();};
+  srch.oninput=function(){logSearch=srch.value;refreshLog();};
   fCard.appendChild(srch);
   // User filter
   const userWrap=el('div',{class:'row2'});
   const uSel=el('select',{class:'fs'});
   const users=[''].concat(S.changeLog.map(function(l){return l.user;}).filter(function(v,i,a){return a.indexOf(v)===i;}));
   users.forEach(function(u){const o=el('option',{value:u},u||'Wszyscy pracownicy');if(u===logUserFilter)o.selected=true;uSel.appendChild(o);});
-  uSel.onchange=function(){{logUserFilter=uSel.value;refreshLog();};
+  uSel.onchange=function(){logUserFilter=uSel.value;refreshLog();};
   const uWrap=el('div',{class:'fg',style:'flex:1'});
   uWrap.appendChild(el('label',{class:'fl'},'Pracownik'));uWrap.appendChild(uSel);
   // Date filters
   const dfWrap=el('div',{class:'fg',style:'flex:1'});
   dfWrap.appendChild(el('label',{class:'fl'},'Od daty'));
   const dfIn=el('input',{class:'fi',type:'date',value:logDateFrom});
-  dfIn.oninput=function(){{logDateFrom=dfIn.value;refreshLog();};
+  dfIn.oninput=function(){logDateFrom=dfIn.value;refreshLog();};
   dfWrap.appendChild(dfIn);
   const dtWrap=el('div',{class:'fg',style:'flex:1'});
   dtWrap.appendChild(el('label',{class:'fl'},'Do daty'));
   const dtIn=el('input',{class:'fi',type:'date',value:logDateTo});
-  dtIn.oninput=function(){{logDateTo=dtIn.value;refreshLog();};
+  dtIn.oninput=function(){logDateTo=dtIn.value;refreshLog();};
   dtWrap.appendChild(dtIn);
   userWrap.appendChild(uWrap);userWrap.appendChild(dfWrap);userWrap.appendChild(dtWrap);
   fCard.appendChild(userWrap);
@@ -1402,8 +1402,8 @@ function renderChildPickup(main, child){
   card.appendChild(r2);
   card.appendChild(textarea('Uwagi',form.notes,function(v){return form.notes=v;},{placeholder:'Dodatkowe informacje...'}));
   const r3=el('div',{class:'row2'});
-  r3.appendChild(inp('Podpis pracownika',form.sigWorker,function(v){form.sigWorker=v;});
-  r3.appendChild(inp('Podpis rodzica',form.sigParent,function(v){form.sigParent=v;});
+  r3.appendChild(inp('Podpis pracownika',form.sigWorker,function(v){form.sigWorker=v;}));
+  r3.appendChild(inp('Podpis rodzica',form.sigParent,function(v){form.sigParent=v;}));
   card.appendChild(r3);
   const btnRow=el('div',{class:'btn-row'});
   btnRow.appendChild(btn('💾 Zapisz','btn-p',function(){
@@ -1472,7 +1472,7 @@ function renderChildNotes(main, child){
   card.appendChild(inp('Data',form.date,function(v){return form.date=v;},{type:'date'}));
   card.appendChild(textarea('Opis sytuacji / obserwacji',form.desc,function(v){return form.desc=v;},{placeholder:'Opisz dokładnie co zaobserwowano...'}));
   card.appendChild(textarea('Podjęte działania',form.actions,function(v){return form.actions=v;},{placeholder:'Jakie kroki zostały podjęte...'}));
-  card.appendChild(inp('Podpis pracownika',form.sig,function(v){form.sig=v;});
+  card.appendChild(inp('Podpis pracownika',form.sig,function(v){form.sig=v;}));
   card.appendChild(btn('💾 Zapisz notatkę','btn-r',function(){
     if(!form.desc)return;
     const entry=Object.assign({},form,{id:uid()});

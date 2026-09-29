@@ -1117,7 +1117,7 @@ function buildDiagnosisForm(container, emp){
       const lbl=el('label',{style:'display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer'});
       const r=el('input',{type:'radio',name:emp.id+'_'+key,value:o});
       if(form[key]===o)r.checked=true;
-      r.onchange=function(){form[key]=o;
+      r.onchange=function(){form[key]=o;};
       lbl.appendChild(r);lbl.appendChild(el('span',{},o));
       wrap.appendChild(lbl);
     });

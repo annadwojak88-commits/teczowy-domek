@@ -1,13 +1,20 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <!DOCTYPE html>
 <html lang="pl">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5"/>
+<meta name="theme-color" content="#5B8DEF"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Tęczowy Domek"/>
+<meta name="mobile-web-app-capable" content="yes"/>
 <title>Tęczowy Domek</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Nunito',Arial,sans-serif;background:#F7F9FF;color:#1A2540;font-size:14px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Nunito',Arial,sans-serif;background:#F7F9FF;color:#1A2540;font-size:14px;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 :root{--p:#5B8DEF;--pd:#3A6FD8;--g:#52C97B;--r:#E8526A;--a:#F4A94E;--bg:#F7F9FF;--card:#fff;--txt:#1A2540;--lt:#6B7A9B;--br:#E0E8F5}
 
 /* TOPBAR */
@@ -21,7 +28,7 @@ body{font-family:'Nunito',Arial,sans-serif;background:#F7F9FF;color:#1A2540;font
 
 /* BOTTOM NAV */
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid var(--br);display:flex;z-index:100;box-shadow:0 -4px 20px rgba(91,141,239,.08)}
-.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px 10px;cursor:pointer;gap:3px;border:none;background:none;border-top:3px solid transparent}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px 10px;cursor:pointer;gap:3px;border:none;background:none;border-top:3px solid transparent;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .nav-item .ni{font-size:20px}.nav-item .nl{font-size:10px;font-weight:700;color:var(--lt)}
 .nav-item.active{border-top-color:var(--p)}.nav-item.active .nl{color:var(--p)}
 
@@ -55,13 +62,13 @@ body{font-family:'Nunito',Arial,sans-serif;background:#F7F9FF;color:#1A2540;font
 /* FORM */
 .fg{margin-bottom:12px}
 .fl{display:block;font-size:12px;font-weight:700;color:var(--lt);margin-bottom:5px}
-.fi,.fs{width:100%;padding:10px 12px;border:2px solid var(--br);border-radius:10px;font-size:14px;font-family:inherit;background:#fff}
+.fi,.fs{width:100%;padding:10px 12px;border:2px solid var(--br);border-radius:10px;font-size:14px;font-family:inherit;background:#fff;-webkit-appearance:none;appearance:none}
 .fi:focus,.fs:focus,.fta:focus{outline:none;border-color:var(--p)}
-.fta{width:100%;padding:10px 12px;border:2px solid var(--br);border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;min-height:76px}
+.fta{width:100%;padding:10px 12px;border:2px solid var(--br);border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;min-height:76px;-webkit-appearance:none;appearance:none}
 .row2{display:flex;gap:10px}.row2 .fg{flex:1}
 
 /* BUTTONS */
-.btn{padding:10px 18px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.btn{padding:10px 18px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .btn-p{background:var(--p);color:#fff}.btn-p:hover{background:var(--pd)}
 .btn-o{background:#fff;border:2px solid var(--p);color:var(--p)}
 .btn-g{background:var(--g);color:#fff}
@@ -141,6 +148,12 @@ body{font-family:'Nunito',Arial,sans-serif;background:#F7F9FF;color:#1A2540;font
 
 /* PRINT STYLES */
 @media print{.topbar,.bottom-nav,.btn,.btn-p,.btn-o,.btn-g,.btn-r,.btn-pr,.back-btn,.no-print{display:none!important}.main{padding:0}}
+/* PRINT MULTI-DAY */
+.print-day-select{background:#F0FFF6;border:2px solid var(--g);border-radius:14px;padding:14px;margin-top:14px}
+.print-day-select .pds-title{font-weight:800;font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.print-day-check{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--br);cursor:pointer}
+.print-day-check:last-of-type{border-bottom:none}
+.print-day-check input[type=checkbox]{width:18px;height:18px;accent-color:var(--g);flex-shrink:0}
 </style>
 </head>
 <body>
@@ -148,8 +161,14 @@ body{font-family:'Nunito',Arial,sans-serif;background:#F7F9FF;color:#1A2540;font
 <div id="app"><div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(160deg,#FFF0E6,#FDF6F0);font-family:sans-serif;padding:20px;text-align:center"><div id="loading-logo" style="height:90px;width:90px;border-radius:20px;background:#EDE0D8;margin-bottom:20px;display:flex;align-items:center;justify-content:center;font-size:40px">🌈</div><div style="font-weight:900;font-size:22px;color:#D4845A;margin-bottom:6px">Tęczowy Domek</div><div style="font-size:13px;color:#9B8A84;margin-bottom:24px">System Zarządzania Żłobkiem</div><div style="display:flex;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:#D4845A;animation:pulse 1.2s infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#D4845A;animation:pulse 1.2s .4s infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#D4845A;animation:pulse 1.2s .8s infinite"></div></div><style>@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}</style></div></div>
 
 <script>
+// ── POLYFILLS ────────────────────────────────────────────────────────────────
+if(!Object.assign){Object.assign=function(t){for(var i=1;i<arguments.length;i++){var s=arguments[i];if(s){for(var k in s){if(Object.prototype.hasOwnProperty.call(s,k))t[k]=s[k];}}}return t;};}
+if(!Array.prototype.find){Array.prototype.find=function(fn){for(var i=0;i<this.length;i++){if(fn(this[i],i,this))return this[i];}return undefined;};}
+if(!Array.prototype.findIndex){Array.prototype.findIndex=function(fn){for(var i=0;i<this.length;i++){if(fn(this[i],i,this))return i;}return -1;};}
+if(!Array.isArray){Array.isArray=function(a){return Object.prototype.toString.call(a)==='[object Array]'};}
+if(!String.prototype.trim){String.prototype.trim=function(){return this.replace(/^\s+|\s+$/g,'');};}
 // ── SUPABASE ─────────────────────────────────────────────────────────────────
-var sb=null,_isOnline=false,_saveTimeout=null,_lastSaveStr='',_lastSaveAt=0;
+var sb=null,_isOnline=false,_saveTimeout=null,_lastSaveStr='',_lastSaveAt=0,_pendingSave=null;
 function initSupabase(){
   try{if(window.supabase){sb=window.supabase.createClient(
     'https://sufryvbsblbhwyaqbhcd.supabase.co',
@@ -158,15 +177,23 @@ function initSupabase(){
 }
 function saveToSupabase(d){
   if(!sb)return;
+  _pendingSave=d;
   clearTimeout(_saveTimeout);
   _saveTimeout=setTimeout(function(){
-    var payload=Object.assign({},d,{currentUser:null});
-    var str=JSON.stringify(payload);
-    _lastSaveStr=str;_lastSaveAt=Date.now();
-    sb.from('app_state').update({data:payload,updated_at:new Date().toISOString()}).eq('id','main')
-      .then(function(r){if(r.error)console.warn('Save error:',r.error.message);})
-      .catch(function(e){console.warn('Save ex:',e);});
-  },600);
+    flushSave();
+  },300);
+}
+function flushSave(){
+  if(!sb||!_pendingSave)return;
+  clearTimeout(_saveTimeout);
+  var d=_pendingSave;
+  _pendingSave=null;
+  var payload=Object.assign({},d,{currentUser:null});
+  var str=JSON.stringify(payload);
+  _lastSaveStr=str;_lastSaveAt=Date.now();
+  sb.from('app_state').update({data:payload,updated_at:new Date().toISOString()}).eq('id','main')
+    .then(function(r){if(r.error)console.warn('Save error:',r.error.message);})
+    .catch(function(e){console.warn('Save ex:',e);});
 }
 function loadFromSupabase(){
   if(!sb)return Promise.resolve(null);
@@ -184,7 +211,9 @@ function subscribeRealtime(){
       var remote=payload.new&&payload.new.data;
       if(!remote)return;
       var str=JSON.stringify(remote);
-      if(str===_lastSaveStr&&(Date.now()-_lastSaveAt)<5000)return;
+      if(str===_lastSaveStr&&(Date.now()-_lastSaveAt)<8000)return;
+      // Don't overwrite if we have unsaved local changes pending
+      if(_pendingSave)return;
       var cu=S.currentUser;
       S=Object.assign({},remote,{currentUser:cu});
       ensureStateFields();saveLocal(S);render();
@@ -214,7 +243,7 @@ let S = load() || {
   groups:['Grupa 1','Grupa 2'],
   children:INIT_CHILDREN.slice(),
   observations:{},healthLog:{},behaviorLog:{},accidents:{},
-  dailyLogs:{},employeeEvals:{},employeeDiagnosis:{},
+  dailyLogs:{},monthlyPlans:{},employeeEvals:{},employeeDiagnosis:{},hrDeadlines:{},deletedUserIds:[],
   notifications:[],changeLog:[],
   pickupLog:{},
   childNotes:{},
@@ -227,7 +256,7 @@ let S = load() || {
     diagnosis:[]   // [{id, label, date, repeat}]
   }
 };
-const builtInIds=INIT_USERS.map(function(u){return u.id;});const extraUsers=(S.users||[]).filter(function(u){return builtInIds.indexOf(u.id)===-1;});S.users=INIT_USERS.concat(extraUsers);
+const builtInIds=INIT_USERS.map(function(u){return u.id;});const extraUsers=(S.users||[]).filter(function(u){return builtInIds.indexOf(u.id)===-1;});var _deleted0=S.deletedUserIds||[];S.users=INIT_USERS.filter(function(u){return _deleted0.indexOf(u.id)===-1;}).concat(extraUsers.filter(function(u){return _deleted0.indexOf(u.id)===-1;}));
 S.children=(S.children||[]).map(function(ex){const fr=INIT_CHILDREN.find(function(c){return c.id===ex.id;});if(!fr)return ex;return Object.assign({},ex,{pesel:fr.pesel||ex.pesel,dob:fr.dob||ex.dob,motherName:fr.motherName||ex.motherName,motherPhone:fr.motherPhone||ex.motherPhone,fatherName:fr.fatherName||ex.fatherName,fatherPhone:fr.fatherPhone||ex.fatherPhone});});
 const exIds=S.children.map(function(c){return c.id;});INIT_CHILDREN.forEach(function(c){if(exIds.indexOf(c.id)===-1)S.children.push(c);});
 S.currentUser = null;
@@ -257,8 +286,9 @@ function logChange(action){if(!S.currentUser)return;setState({changeLog:[{ts:new
 var PRINT_CSS = '@page{size:A4;margin:18mm 15mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:11pt;color:#111}h1{font-size:14pt;font-weight:bold;text-align:center;margin-bottom:4px}h2{font-size:11pt;text-align:center;color:#444;margin-bottom:14px}h3{font-size:10pt;font-weight:bold;background:#eee;padding:4px 8px;margin:12px 0 6px;border-left:4px solid #555;text-transform:uppercase}.logo-row{text-align:center;margin-bottom:10px}.divider{border:none;border-top:1px solid #ccc;margin:8px 0}table{width:100%;border-collapse:collapse;margin-bottom:10px}th{background:#ddd;font-weight:bold;font-size:9.5pt;padding:5px 6px;border:1px solid #bbb}td{padding:4px 6px;border:1px solid #ccc;font-size:9.5pt;vertical-align:top}tr:nth-child(even) td{background:#f9f9f9}.fr{display:flex;gap:14px;margin-bottom:8px}.f{flex:1}.fl{font-size:9pt;color:#555;margin-bottom:2px;font-weight:bold}.fv{border-bottom:1px solid #999;min-height:18px;font-size:10pt;padding-bottom:2px}.fta{border:1px solid #ccc;min-height:36px;padding:4px;font-size:10pt;width:100%;margin-bottom:8px}.sig-row{display:flex;gap:30px;margin-top:20px}.sig-box{flex:1;border-top:1px solid #999;padding-top:4px;font-size:9pt;text-align:center;color:#555}.bw{background:#c8f7d8;padding:1px 5px;border-radius:3px;font-size:9pt;font-weight:bold}.bp{background:#fdebc8;padding:1px 5px;border-radius:3px;font-size:9pt;font-weight:bold}.bn{background:#fdd0d5;padding:1px 5px;border-radius:3px;font-size:9pt;font-weight:bold}.bb{background:#eee;padding:1px 5px;border-radius:3px;font-size:9pt}.total-box{text-align:center;border:2px solid #333;padding:10px;margin:12px 0}.total-num{font-size:24pt;font-weight:bold}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
 
 function printDoc(title, body){
-  const w = window.open('','_blank');
-  const logoHtml = '<div class="logo-row"><img src="'+LOGO+'" style="height:60px;width:auto"/><br><strong>Zesp&oacute;&lstrok; &Zdot;&lstrok;obk&oacute;w T&eogon;czowy Domek</strong><div class="divider"></div></div>';
+  var w = window.open('','_blank');
+  if(!w){showToast('Zezwól na otwieranie okien w przeglądarce');return;}
+  var logoHtml = '<div class="logo-row"><img src="'+LOGO+'" style="height:60px;width:auto"/><br><strong>Zesp&oacute;&lstrok; &Zdot;&lstrok;obk&oacute;w T&eogon;czowy Domek</strong><div class="divider"></div></div>';
   w.document.write('<!DOCTYPE html><html lang="pl"><head><meta charset="UTF-8"><title>'+title+'</title><style>'+PRINT_CSS+'</style></head><body>'+logoHtml+body+'<script>window.onload=function(){window.print()}<\/script></body></html>');
   w.document.close();
 }
@@ -310,16 +340,89 @@ function printAccident(child, a){
   );
 }
 
+function printDiagnosis(emp, e){
+  var ta=function(l,v){return v?'<div class="fl">'+l+'</div><div class="fta">'+(v||'—')+'</div>':'';};
+  var yn=function(l,v){return v?'<div class="f"><div class="fl">'+l+'</div><div class="fv">'+(v||'—')+'</div></div>':'';};
+  var sec=function(t){return '<h3 style="margin:14px 0 6px;color:#3A6FD8;font-size:11pt;border-bottom:1px solid #dde">'+t+'</h3>';};
+  printDoc('Diagnoza obszarów – '+emp.name,
+    '<h1>Diagnoza obszarów wymagających poprawy</h1><h2>'+emp.name+' | '+emp.group+' | Data: '+e.date+'</h2>'+
+    sec('I. Planowanie i realizacja')+
+    ta('Planowanie i monitorowanie pracy',e.q_planning)+
+    yn('Koncepcja pracy uwzględnia potrzeby dzieci',e.q_concept)+
+    ta('Potrzeby dzieci w planowaniu',e.q_individual)+
+    sec('II. Praca z dziećmi')+
+    yn('Stosowanie różnorodnych metod',e.q_methods)+
+    yn('Znajomość i charakterystyka dzieci',e.q_childKnowledge)+
+    ta('Monitorowanie i wspieranie rozwoju',e.q_development)+
+    ta('Aktywizowanie dzieci',e.q_activation)+
+    sec('III. Współpraca z rodzicami')+
+    yn('Ocena kontaktów z rodzicami',e.q_parents)+
+    ta('Trudna sytuacja z rodzicem',e.q_communicate)+
+    sec('IV. Praca zespołowa i placówka')+
+    ta('Współpraca z zespołem',e.q_teamwork)+
+    yn('Znajomość procedur bezpieczeństwa',e.q_safetyKnowledge)+
+    yn('Dokumentacja na bieżąco',e.q_documentationOk)+
+    sec('V. Refleksja i rozwój')+
+    ta('Najtrudniejszy moment w pracy',e.q_hardestMoment)+
+    ta('Chwila sukcesu',e.q_successMoment)+
+    ta('Moje mocne strony',e.q_ownStrengths)+
+    ta('W czym potrzebuję wsparcia',e.q_needsSupport)+
+    '<div class="sig-row"><div class="sig-box">Data i podpis opiekuna</div><div class="sig-box">Data i podpis dyrektora</div></div>'
+  );
+}
+
+function printDailyMulti(grp, keys){
+  if(!keys||!keys.length){showToast('Zaznacz co najmniej jeden dzień');return;}
+  var body='';
+  keys.sort().forEach(function(k){
+    var d=k.replace('_'+grp,'');
+    var log=S.dailyLogs[k];
+    if(!log)return;
+    var entries=(log.entries||[]).map(function(e){
+      return '<tr><td>'+e.time+'</td><td>'+e.type+'</td><td>'+(e.desc||'')+'</td><td>'+(e.done?'✓':'')+'</td><td>'+(e.sig||'')+'</td></tr>';
+    }).join('');
+    body+='<div class="day-block">';
+    body+='<h2>📅 '+d+' &nbsp; Grupa: '+grp+'</h2>';
+    body+='<h3>🎓 Zajęcia rozwijające</h3>';
+    body+='<table><tr><th>Godziny</th><th>Rodzaj zajęć</th><th>Temat</th><th>Zrealizowano</th><th>Podpis</th></tr>'+entries+'</table>';
+    body+='<h3>🌳 Pobyt na świeżym powietrzu</h3>';
+    body+='<table><tr><th>Pora</th><th>Od</th><th>Do</th><th>Zrealizowano</th></tr>';
+    body+='<tr><td>Przedpołudnie</td><td>'+(log.outdoorAM&&log.outdoorAM.from||'')+'</td><td>'+(log.outdoorAM&&log.outdoorAM.to||'')+'</td><td>'+(log.outdoorAM&&log.outdoorAM.done?'✓':'')+'</td></tr>';
+    body+='<tr><td>Popołudnie</td><td>'+(log.outdoorPM&&log.outdoorPM.from||'')+'</td><td>'+(log.outdoorPM&&log.outdoorPM.to||'')+'</td><td>'+(log.outdoorPM&&log.outdoorPM.done?'✓':'')+'</td></tr>';
+    body+='</table>';
+    if(log.summary){body+='<h3>📝 Podsumowanie dnia</h3><p>'+log.summary+'</p>';}
+    body+='<div class="sig-row"><div class="sig-box">Podpis rano: '+(log.sigAM||'')+'</div><div class="sig-box">Podpis popołudnie: '+(log.sigPM||'')+'</div></div>';
+    body+='</div>';
+  });
+  printDoc('Dziennik zajęć – '+grp, body);
+}
+
 function printEval(emp, e){
-  const ta = function(l,v){return '<div class="fl">'+l+'</div><div class="fta">'+(v||'')+'</div>';};
+  const ta = function(l,v){return v?'<div class="fl">'+l+'</div><div class="fta">'+(v||'—')+'</div>':'';};
+  const sec = function(t){return '<h3 style="margin:16px 0 6px;color:#3A6FD8;font-size:11pt;border-bottom:1px solid #dde">'+t+'</h3>';};
   printDoc('Samoocena – '+emp.name,
     '<h1>Karta Samooceny Opiekuna</h1><h2>'+emp.name+' | '+emp.group+' | Data: '+e.date+'</h2>'+
-    ta('Sytuacja w mojej grupie',e.situation)+
-    ta('Formy i metody pracy z dzieckiem',e.methods)+
-    ta('Stopień realizacji założonych celów',e.goals)+
+    sec('I. Praca z dziećmi')+
+    ta('Opis grupy i ogólna atmosfera',e.situation)+
+    ta('Reagowanie na indywidualne potrzeby dzieci',e.childNeeds)+
+    ta('Jakość prowadzonych zajęć',e.activitiesQuality)+
+    ta('Obserwacja i dokumentowanie rozwoju dzieci',e.childObservation)+
+    sec('II. Planowanie i metody')+
+    ta('Formy i metody pracy',e.methods)+
+    ta('Realizacja planów — co działało, co nie',e.planningReflection)+
+    ta('Stopień realizacji celów',e.goals)+
+    sec('III. Współpraca z rodzinami')+
+    ta('Kontakty z rodzinami',e.parentContact)+
+    ta('Trudne sytuacje z rodzicami',e.parentChallenges)+
+    sec('IV. Praca zespołowa')+
+    ta('Współpraca z zespołem',e.teamwork)+
+    ta('Trudne sytuacje w pracy',e.teamConflict)+
+    sec('V. Rozwój zawodowy')+
     ta('Podnoszenie kwalifikacji',e.qualifications)+
-    ta('Kontakty z rodzinami, formy współpracy',e.parentContact)+
-    ta('Zmiany jakie należałoby wprowadzić w przyszłym roku',e.changes)+
+    ta('Co chcę poprawić lub rozwinąć',e.selfDevelopment)+
+    sec('VI. Podsumowanie')+
+    ta('Największe sukcesy i osiągnięcia',e.achievements)+
+    ta('Co chciałabym zmienić',e.changes)+
     ta('Wnioski do dalszej pracy',e.conclusions)+
     '<div class="sig-row"><div class="sig-box">Data i podpis opiekuna</div><div class="sig-box">Data i podpis dyrektora</div></div>'
   );
@@ -417,7 +520,7 @@ function render(){
     renderMainTab(main);
   }
   app.appendChild(main);
-  if(!childViewId)app.appendChild(renderBottomNav());
+  if(!childViewId){app.appendChild(renderBottomNav());renderMorePanel(app);}
 }
 
 function renderLogin(app){
@@ -474,27 +577,53 @@ function renderTopbar(){
   const u=S.currentUser;
   const right=el('div',{class:'topbar-right'});
   const info=el('div',{class:'user-info'});
-  info.innerHTML='<strong>'+u.name+'</strong>'+(isAdmin()?'Dyrektor':u.group);
+  var syncDot=_isOnline?'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#52C97B;margin-right:3px;vertical-align:middle"></span>online':'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#F4A94E;margin-right:3px;vertical-align:middle"></span>offline';
+  info.innerHTML='<strong>'+u.name+'</strong><span style="font-size:10px">'+syncDot+'</span> '+(isAdmin()?'Dyrektor':u.group);
   const av=el('div',{class:'avatar'},u.name[0]);
   const lb=el('button',{class:'logout-btn'},'Wyloguj');
-  lb.onclick=function(){setState({currentUser:null});childViewId=null;currentTab='home';render();};
+  lb.onclick=function(){flushSave();setState({currentUser:null});childViewId=null;currentTab='home';render();};
   right.appendChild(info);right.appendChild(av);right.appendChild(lb);
   bar.appendChild(right);
   return bar;
 }
 
+var morePanelOpen=false;
 function renderBottomNav(){
   const nav=el('div',{class:'bottom-nav'});
-  const tabs=[['home','🏠','Start'],['children','👶','Dzieci'],['daily','📅','Dziennik'],['birthdays','🎂','Urodziny'],['terminy','📅','Terminy'],['photos','📸','Zdjęcia'],['occupancy','📊','Obłożenie']];
-  if(isAdmin()){tabs.push(['staff','👩','Pracownicy'],['admin','⚙️','Admin']);}
-  tabs.forEach(function(tab){var id=tab[0],icon=tab[1],label=tab[2];
+  var moreTabs=['birthdays','terminy','photos','occupancy'];
+  var isMoreActive=moreTabs.indexOf(currentTab)>=0;
+  const mainTabs=[['home','🏠','Start'],['children','👶','Dzieci'],['daily','📅','Dziennik'],['staff','👩','Pracownicy']];
+  if(isAdmin()){mainTabs.push(['admin','⚙️','Admin']);}
+  mainTabs.push(['more','⋯','Więcej']);
+  mainTabs.forEach(function(tab){var id=tab[0],icon=tab[1],label=tab[2];
+    var isActive=(id==='more')?isMoreActive:(currentTab===id);
     const unread=id==='admin'?S.notifications.filter(function(n){return !n.seen;}).length:0;
-    const b=el('button',{class:'nav-item'+(currentTab===id?' active':'')});
+    const b=el('button',{class:'nav-item'+(isActive?' active':'')});
     b.innerHTML='<span class="ni">'+icon+'</span><span class="nl">'+label+(unread>0?'<span class="ndot"></span>':'')+'</span>';
-    b.onclick=function(){currentTab=id;render();};
+    b.onclick=function(){
+      flushSave();
+      if(id==='more'){morePanelOpen=!morePanelOpen;render();}
+      else{morePanelOpen=false;currentTab=id;render();}
+    };
     nav.appendChild(b);
   });
   return nav;
+}
+function renderMorePanel(app){
+  if(!morePanelOpen)return;
+  var panel=el('div',{style:'position:fixed;bottom:60px;left:0;right:0;background:#fff;border-top:2px solid var(--br);z-index:99;box-shadow:0 -4px 20px rgba(91,141,239,.12);display:flex;justify-content:space-around;padding:12px 8px;gap:8px'});
+  var items=[['birthdays','🎂','Urodziny'],['terminy','📅','Terminy'],['photos','📸','Zgody'],['occupancy','📊','Obłożenie']];
+  items.forEach(function(it){
+    var b=el('button',{style:'flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;background:'+(currentTab===it[0]?'#EEF4FF':'#F7F9FF')+';border:2px solid '+(currentTab===it[0]?'var(--p)':'var(--br)')+';border-radius:12px;padding:10px 4px;cursor:pointer;font-family:inherit'});
+    b.innerHTML='<span style="font-size:22px">'+it[1]+'</span><span style="font-size:10px;font-weight:700;color:'+(currentTab===it[0]?'var(--p)':'var(--lt)')+'">'+it[2]+'</span>';
+    b.onclick=function(){morePanelOpen=false;currentTab=it[0];render();};
+    panel.appendChild(b);
+  });
+  app.appendChild(panel);
+  // click outside to close
+  var overlay=el('div',{style:'position:fixed;inset:0;z-index:98'});
+  overlay.onclick=function(){morePanelOpen=false;render();};
+  app.insertBefore(overlay,panel);
 }
 
 function renderMainTab(main){
@@ -505,7 +634,7 @@ function renderMainTab(main){
   else if(currentTab==='photos') renderPhotoConsent(main);
   else if(currentTab==='occupancy') renderOccupancy(main);
   else if(currentTab==='terminy') renderTerminy(main);
-  else if(currentTab==='staff'&&isAdmin()) renderStaff(main);
+  else if(currentTab==='staff') renderStaff(main);
   else if(currentTab==='admin'&&isAdmin()) renderAdmin(main);
 }
 
@@ -949,6 +1078,49 @@ function renderDaily(main){
     });
     main.appendChild(grpRow);
   }
+  // Monthly plan banner
+  var curMonthKey=dailyDate.substring(0,7)+'_'+grp;
+  var curPlan=S.monthlyPlans&&S.monthlyPlans[curMonthKey];
+  var planBanner=el('div',{style:'background:'+(curPlan?'#F0FFF6':'#FFF8EE')+';border:2px solid '+(curPlan?'var(--g)':'var(--a)')+';border-radius:14px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap'});
+  var planInfo=el('div',{style:'flex:1;min-width:0'});
+  var planMon=dailyDate.substring(0,7);
+  var planMonLabel=planMon?(function(){var m=['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];var p=planMon.split('-');return m[parseInt(p[1],10)-1]+' '+p[0];}()):'';
+  planInfo.innerHTML=curPlan
+    ? '<div style="font-weight:800;font-size:13px;color:#2a8855">📋 Plan miesiąca wczytany — '+planMonLabel+' ('+curPlan.length+' dni)</div><div style="font-size:11px;color:var(--lt)">Wpisy w dzienniku uzupełniane automatycznie z planu</div>'
+    : '<div style="font-weight:800;font-size:13px;color:#c07800">📋 Brak planu zajęć dla '+planMonLabel+'</div><div style="font-size:11px;color:var(--lt)">Wgraj plik JSON z planem, aby automatycznie uzupełniać dziennik</div>';
+  planBanner.appendChild(planInfo);
+  if(isAdmin()||true){
+    // Import plan button
+    var impBtn=el('button',{style:'background:var(--p);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap'},'⬆ Wgraj plan');
+    var fileIn=el('input',{type:'file',accept:'.json',style:'display:none'});
+    fileIn.onchange=function(){
+      var f=fileIn.files[0];if(!f)return;
+      var reader=new FileReader();
+      reader.onload=function(ev){
+        try{
+          var parsed=JSON.parse(ev.target.result);
+          if(!Array.isArray(parsed)){showToast('Błąd: plik JSON musi zawierać tablicę');return;}
+          if(!S.monthlyPlans)S.monthlyPlans={};
+          S.monthlyPlans[curMonthKey]=parsed;
+          save(S);showToast('Plan wczytany: '+parsed.length+' dni ✓');render();
+        }catch(e){showToast('Błąd pliku JSON: '+e.message);}
+      };
+      reader.readAsText(f);
+    };
+    impBtn.onclick=function(){fileIn.click();};
+    planBanner.appendChild(fileIn);
+    planBanner.appendChild(impBtn);
+    if(curPlan){
+      var delPlanBtn=el('button',{style:'background:#fff;border:2px solid var(--r);color:var(--r);border-radius:10px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit'},'🗑');
+      delPlanBtn.onclick=function(){
+        if(!confirm('Usunąć plan dla '+planMonLabel+'?'))return;
+        delete S.monthlyPlans[curMonthKey];save(S);render();
+      };
+      planBanner.appendChild(delPlanBtn);
+    }
+  }
+  main.appendChild(planBanner);
+
   const dateWrap=el('div',{class:'fg'});
   dateWrap.appendChild(el('label',{class:'fl'},'Data'));
   const di=el('input',{class:'fi',type:'date',value:dailyDate});
@@ -957,8 +1129,41 @@ function renderDaily(main){
   main.appendChild(dateWrap);
   main.appendChild(el('div',{style:'font-size:13px;color:var(--lt);margin-bottom:14px'},'Grupa: <strong>'+grp+'</strong>'));
   const key=dailyDate+'_'+grp;
-  let log=S.dailyLogs[key]||{entries:[{time:'9:00–9:30',type:'Zajęcia dydaktyczne',done:false,desc:'',sig:''},{time:'14:30–15:00',type:'Zabawy dowolne',done:false,desc:'',sig:''},{time:'15:00–15:45',type:'Czytanie bajek',done:false,desc:'',sig:''}],outdoorAM:{done:false,from:'9:30',to:'10:30',desc:'',sig:''},outdoorPM:{done:false,from:'15:00',to:'15:30',desc:'',sig:''},summary:'',sigAM:'',sigPM:''};
+  // Check if monthly plan has entries for this date
+  var monthKey=(dailyDate.substring(0,7))+'_'+grp;
+  var planForDay=null;
+  if(S.monthlyPlans&&S.monthlyPlans[monthKey]){
+    var dd2=parseInt(dailyDate.split('-')[2],10);
+    var mm2=parseInt(dailyDate.split('-')[1],10);
+    S.monthlyPlans[monthKey].forEach(function(p){
+      var parts=p.date.split('.');
+      if(parseInt(parts[0],10)===dd2&&parseInt(parts[1],10)===mm2){planForDay=p;}
+    });
+  }
+  var defaultEntries;
+  if(planForDay){
+    defaultEntries=[
+      {time:'9:00–9:30',type:'Zajęcia – '+planForDay.morning,done:false,desc:planForDay.topic||'',sig:''},
+      {time:'14:30–15:00',type:'Zajęcia – '+planForDay.afternoon,done:false,desc:'',sig:''},
+      {time:'15:00–15:45',type:'Zabawy dowolne',done:false,desc:'',sig:''}
+    ];
+  } else {
+    defaultEntries=[
+      {time:'9:00–9:30',type:'Zajęcia dydaktyczne',done:false,desc:'',sig:''},
+      {time:'14:30–15:00',type:'Zabawy dowolne',done:false,desc:'',sig:''},
+      {time:'15:00–15:45',type:'Czytanie bajek',done:false,desc:'',sig:''}
+    ];
+  }
+  let log=S.dailyLogs[key]||{entries:defaultEntries,outdoorAM:{done:false,from:'9:30',to:'10:30',desc:'',sig:''},outdoorPM:{done:false,from:'15:00',to:'15:30',desc:'',sig:''},summary:'',sigAM:'',sigPM:''};
   function saveLog(){setLog("dailyLogs",key,log);}
+  // Show plan hint if available
+  if(planForDay&&!S.dailyLogs[key]){
+    var planHint=el('div',{style:'background:#EEF4FF;border-radius:12px;padding:12px 14px;margin-bottom:14px;border-left:4px solid var(--p)'});
+    planHint.innerHTML='<div style="font-weight:800;font-size:13px;color:var(--p)">📋 Plan miesiąca — '+planForDay.topic+'</div>'+
+      '<div style="font-size:12px;color:var(--lt);margin-top:4px">🌅 Rano: '+planForDay.morning+' &nbsp;|&nbsp; 🌆 Popołudnie: '+planForDay.afternoon+'</div>'+
+      '<div style="font-size:11px;color:var(--g);margin-top:4px">✓ Wpisy wstępnie uzupełnione z planu — możesz edytować</div>';
+    main.appendChild(planHint);
+  }
   const actCard=el('div',{class:'card'});
   actCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:12px'},'🎓 Zajęcia rozwijające'));
   log.entries.forEach(function(entry,i){
@@ -1007,7 +1212,8 @@ function renderDaily(main){
   sr.appendChild(inp('Podpis popołudnie',log.sigPM||'',function(v){log.sigPM=v;saveLog();}));
   sumCard.appendChild(sr);
   main.appendChild(sumCard);
-  main.appendChild(btn('💾 Zapisz dziennik','btn-p full',function(){logChange('Dziennik: '+dailyDate+' '+grp);showToast('Dziennik zapisany');}));
+  main.appendChild(btn('💾 Zapisz dziennik','btn-p full',function(){saveLog();flushSave();logChange('Dziennik: '+dailyDate+' '+grp);showToast('Dziennik zapisany ✓');}));
+  main.appendChild(el('div',{style:'text-align:center;font-size:11px;color:var(--lt);margin:4px 0 10px'},'💡 Dane zapisują się automatycznie po każdej zmianie'));
 
   // Przycisk drukowania/pobierania
   const printBtn=btn('🖨️ Drukuj / Pobierz PDF','btn-o full',function(){
@@ -1034,19 +1240,65 @@ function renderDaily(main){
   printBtn.style.marginTop='8px';
   main.appendChild(printBtn);
 
-  // Historia dziennika — lista zapisanych dni dla tej grupy
+  // Historia dziennika — lista zapisanych dni dla tej grupy z drukiem wielodniowym
   const histKeys=Object.keys(S.dailyLogs||{}).filter(function(k){return k.endsWith('_'+grp);}).sort().reverse();
   if(histKeys.length>0){
-    const histCard=el('div',{class:'card',style:'margin-top:14px'});
-    histCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:10px'},'📂 Zapisane dni — '+grp));
+    var selectedDays={};
+    const histCard=el('div',{class:'print-day-select'});
+    const titleRow=el('div',{class:'pds-title'});
+    titleRow.appendChild(el('span',{},'📂 Zapisane dni — '+grp));
+    const selAllBtn=el('button',{style:'margin-left:auto;background:#fff;border:2px solid var(--g);color:var(--g);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit'},'Zaznacz wszystkie');
+    selAllBtn.onclick=function(){
+      histKeys.forEach(function(k){selectedDays[k]=true;});
+      updateCheckboxes();
+    };
+    titleRow.appendChild(selAllBtn);
+    histCard.appendChild(titleRow);
+
+    var checkboxMap={};
+    function updateCheckboxes(){
+      histKeys.forEach(function(k){
+        if(checkboxMap[k])checkboxMap[k].checked=!!selectedDays[k];
+      });
+    }
+
     histKeys.forEach(function(k){
-      const d=k.replace('_'+grp,'');
-      const row=el('div',{style:'display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--br)'});
-      row.appendChild(el('span',{},d));
+      var d=k.replace('_'+grp,'');
+      var log2=S.dailyLogs[k];
+      var entryCount=(log2&&log2.entries)?log2.entries.filter(function(e){return e.done;}).length:0;
+      var totalCount=(log2&&log2.entries)?log2.entries.length:0;
+      const row=el('div',{class:'print-day-check'});
+      const cb=el('input',{type:'checkbox'});
+      checkboxMap[k]=cb;
+      cb.onchange=function(){selectedDays[k]=cb.checked;};
+      row.appendChild(cb);
+      const info=el('div',{style:'flex:1'});
+      info.innerHTML='<strong>'+d+'</strong> <span style="font-size:11px;color:var(--lt)">'+entryCount+'/'+totalCount+' zajęć</span>';
+      row.appendChild(info);
+      const btns=el('div',{style:'display:flex;gap:5px'});
       const ob=btn('Otwórz','btn-o btn-sm',function(){dailyDate=d;render();});
-      row.appendChild(ob);
+      const db=btn('🗑️','btn-r btn-sm',function(){
+        confirmDelete('Usunąć dziennik z dnia '+d+'?',function(){
+          var logs=Object.assign({},S.dailyLogs||{});
+          delete logs[k];
+          S.dailyLogs=logs;
+          save(S);
+          logChange('Usunięto dziennik: '+d+' '+grp);
+          showToast('Dziennik usunięty');
+          render();
+        });
+      });
+      btns.appendChild(ob);btns.appendChild(db);
+      row.appendChild(btns);
       histCard.appendChild(row);
     });
+
+    const printSelBtn=btn('🖨️ Drukuj zaznaczone dni','btn-g full',function(){
+      var keys=histKeys.filter(function(k){return selectedDays[k];});
+      printDailyMulti(grp,keys);
+    });
+    printSelBtn.style.marginTop='12px';
+    histCard.appendChild(printSelBtn);
     main.appendChild(histCard);
   }
 }
@@ -1055,52 +1307,231 @@ function renderDaily(main){
 function renderStaff(main){
   main.appendChild(el('div',{class:'section-title'},'👩 Pracownicy'));
   const tabs=el('div',{class:'tabs'});
-  [['eval','📋 Samoocena'],['diagnosis','🔍 Diagnoza'],['criteria','⭐ Ocena kryteriów']].forEach(function(tab){var id=tab[0],lbl=tab[1];
+  var staffTabs=[['eval','📋 Samoocena'],['diagnosis','🔍 Diagnoza']];
+  if(isAdmin())staffTabs.push(['criteria','⭐ Ocena kryteriów']);
+  staffTabs.forEach(function(tab){var id=tab[0],lbl=tab[1];
     const t=el('button',{class:'tab'+(staffTab===id?' active':'')},lbl);
     t.onclick=function(){staffTab=id;render();};
     tabs.appendChild(t);
   });
   main.appendChild(tabs);
-  const emps=S.users.filter(function(u){return u.role==='opiekun';});
+  // Admin widzi wszystkich pracowników, opiekunka tylko siebie
+  var emps;
+  if(isAdmin()){
+    emps=S.users.filter(function(u){return u.role==='opiekun';});
+  } else {
+    emps=S.users.filter(function(u){return u.id===S.currentUser.id;});
+  }
+  if(emps.length===0){
+    main.appendChild(el('div',{class:'card',style:'text-align:center;color:var(--lt);padding:24px'},'Brak danych pracowniczych.'));
+    return;
+  }
   emps.forEach(function(emp){
     const item=el('div',{class:'acc-item'});
-    const trigger=el('button',{class:'acc-trigger'},'👤 '+emp.name+' · '+emp.group+' <span>▼</span>');
-    const body=el('div',{class:'acc-body'});
-    trigger.onclick=function(){body.classList.toggle('open');};
+    // Jeśli opiekunka widzi tylko siebie - rozwiń automatycznie
+    const isOwn=!isAdmin();
+    const body=el('div',{class:'acc-body'+(isOwn?' open':'')});
+    if(isAdmin()){
+      const trigger=el('button',{class:'acc-trigger'},'👤 '+emp.name+' · '+emp.group+' <span>▼</span>');
+      trigger.onclick=function(){body.classList.toggle('open');};
+      item.appendChild(trigger);
+    } else {
+      item.appendChild(el('div',{class:'card',style:'font-weight:700;font-size:15px;margin-bottom:4px'},'👤 '+emp.name+' · '+emp.group));
+    }
     if(staffTab==='eval') buildEvalForm(body,emp);
     else if(staffTab==='diagnosis') buildDiagnosisForm(body,emp);
-    else if(staffTab==='criteria') buildCriteriaForm(body,emp);
-    item.appendChild(trigger);item.appendChild(body);
+    else if(staffTab==='criteria'&&isAdmin()) buildCriteriaForm(body,emp);
+    item.appendChild(body);
     main.appendChild(item);
   });
 }
 
 function buildEvalForm(container, emp){
-  let form={date:today(),situation:'',methods:'',goals:'',qualifications:'',parentContact:'',changes:'',conclusions:''};
+  let form={date:today(), period:'',
+    // skale 1–5 (gwiazdki) per sekcja
+    scale_children:0, scale_planning:0, scale_parents:0, scale_team:0, scale_development:0,
+    // I. Praca z dziećmi
+    situation:'', childNeeds:'', activitiesQuality:'', childObservation:'',
+    // II. Metody i planowanie
+    methods:'', planningReflection:'', goals:'',
+    // III. Współpraca z rodzinami
+    parentContact:'', parentChallenges:'', parentNeedsInfo:'',
+    // IV. Praca zespołowa
+    teamwork:'', teamConflict:'',
+    // V. Rozwój zawodowy
+    qualifications:'', selfDevelopment:'',
+    // VI. Podsumowanie
+    achievements:'', changes:'', conclusions:'',
+    // Potrzeby od dyrektora
+    needsFromDirector:'',
+    // Priorytety na kolejny kwartał
+    priority1:'', priority2:'', priority3:''
+  };
+
   container.appendChild(el('div',{style:'font-size:13px;color:var(--lt);margin-bottom:12px'},'Karta samooceny opiekuna'));
-  container.appendChild(inp('Data',form.date,function(v){return form.date=v;},{type:'date'}));
-  [['situation','Sytuacja w mojej grupie'],['methods','Formy i metody pracy'],['goals','Stopień realizacji celów'],['qualifications','Podnoszenie kwalifikacji'],['parentContact','Kontakty z rodzinami'],['changes','Zmiany na przyszły rok'],['conclusions','Wnioski do dalszej pracy']].forEach(function(f){var k=f[0],l=f[1];container.appendChild(textarea(l,form[k],function(v){form[k]=v;}));});
-  container.appendChild(btn('💾 Zapisz','btn-p btn-sm',function(){
+
+  // Okres oceny + data
+  var periodRow=el('div',{class:'row2'});
+  var pg=el('div',{class:'fg'});
+  pg.appendChild(el('label',{class:'fl'},'Okres oceny (np. wrzesień–grudzień 2026)'));
+  var pi=el('input',{class:'fi',placeholder:'np. wrzesień–grudzień 2026',value:form.period});
+  pi.oninput=function(){form.period=pi.value;};
+  pg.appendChild(pi);
+  periodRow.appendChild(pg);
+  var dg=el('div',{class:'fg'});
+  dg.appendChild(el('label',{class:'fl'},'Data wypełnienia'));
+  var di=el('input',{class:'fi',type:'date',value:form.date});
+  di.oninput=function(){form.date=di.value;};
+  dg.appendChild(di);
+  periodRow.appendChild(dg);
+  container.appendChild(periodRow);
+
+  // helpers
+  function sec(title,color){
+    var h=el('div',{style:'background:'+color+';border-radius:10px;padding:8px 12px;margin:16px 0 8px;font-weight:800;font-size:13px'});
+    h.textContent=title; container.appendChild(h);
+  }
+  function hint(txt){
+    var d=el('div',{style:'font-size:11px;color:var(--lt);margin:-4px 0 8px;font-style:italic'});
+    d.textContent='💡 '+txt; container.appendChild(d);
+  }
+  // Skala gwiazdkowa
+  function stars(key,label){
+    var wrap=el('div',{style:'display:flex;align-items:center;gap:8px;margin-bottom:14px;background:#FAFBFF;border-radius:10px;padding:10px 12px;border:1px solid var(--br)'});
+    wrap.appendChild(el('span',{style:'font-size:12px;font-weight:700;color:var(--lt);flex:1'},label));
+    var starWrap=el('div',{style:'display:flex;gap:4px'});
+    for(var s=1;s<=5;s++){
+      (function(val){
+        var st=el('button',{style:'font-size:22px;background:none;border:none;cursor:pointer;padding:0;line-height:1;transition:.1s'},(form[key]>=val?'★':'☆'));
+        st.onclick=function(){
+          form[key]=val;
+          starWrap.querySelectorAll('button').forEach(function(b,i){b.textContent=i<val?'★':'☆';b.style.color=i<val?'#F4A94E':'#ccc';});
+        };
+        st.style.color=form[key]>=val?'#F4A94E':'#ccc';
+        starWrap.appendChild(st);
+      }(s));
+    }
+    wrap.appendChild(starWrap);
+    var labels=['','słabo','poniżej oczekiwań','przeciętnie','dobrze','wzorowo'];
+    var lbl=el('span',{style:'font-size:11px;color:var(--lt);min-width:80px;text-align:right'},form[key]?labels[form[key]]:'oceń');
+    wrap.appendChild(lbl);
+    starWrap.querySelectorAll('button').forEach(function(b,i){
+      b.addEventListener('click',function(){lbl.textContent=labels[form[key]];});
+    });
+    container.appendChild(wrap);
+  }
+
+  sec('I. Praca z dziećmi','#EEF4FF');
+  stars('scale_children','Samoocena obszaru: Praca z dziećmi');
+  container.appendChild(textarea('Opis grupy i ogólna atmosfera',form.situation,function(v){form.situation=v;}));
+  hint('Jak czują się dzieci w grupie? Czy panuje bezpieczna, przyjazna atmosfera?');
+  container.appendChild(textarea('Reagowanie na indywidualne potrzeby dzieci',form.childNeeds,function(v){form.childNeeds=v;}));
+  hint('Czy rozpoznaję potrzeby każdego dziecka? Jak dostosuję aktywności?');
+  container.appendChild(textarea('Jakość prowadzonych zajęć',form.activitiesQuality,function(v){form.activitiesQuality=v;}));
+  hint('Co wychodzi mi dobrze? Co chciałabym doskonalić? Jaka pora dnia jest najtrudniejsza?');
+  container.appendChild(textarea('Obserwacja i dokumentowanie rozwoju dzieci',form.childObservation,function(v){form.childObservation=v;}));
+  hint('Jak regularnie prowadzę obserwacje? Czy korzystam z arkuszy obserwacji?');
+
+  sec('II. Planowanie i metody','#F0FFF6');
+  stars('scale_planning','Samoocena obszaru: Planowanie i metody');
+  container.appendChild(textarea('Formy i metody pracy',form.methods,function(v){form.methods=v;}));
+  hint('Jakie metody stosuję najczęściej? Czy wprowadzam nowe pomysły?');
+  container.appendChild(textarea('Realizacja planów — co działało, co nie',form.planningReflection,function(v){form.planningReflection=v;}));
+  hint('Czy plany były realne? Co zmieniałam w ostatniej chwili i dlaczego?');
+  container.appendChild(textarea('Stopień realizacji celów z planu rocznego',form.goals,function(v){form.goals=v;}));
+
+  sec('III. Współpraca z rodzinami','#FFF8EE');
+  stars('scale_parents','Samoocena obszaru: Współpraca z rodzinami');
+  container.appendChild(textarea('Kontakty z rodzinami dzieci',form.parentContact,function(v){form.parentContact=v;}));
+  hint('Jak często i w jakiej formie kontaktuję się z rodzicami? Co cenię w tej współpracy?');
+  container.appendChild(textarea('Trudne sytuacje z rodzicami — jak sobie radziłam',form.parentChallenges,function(v){form.parentChallenges=v;}));
+  hint('Opisz sytuację, która była wyzwaniem. Czego się nauczyłam?');
+  container.appendChild(textarea('Czy rozmawiałam z rodzicem o trudnościach/potrzebach dziecka?',form.parentNeedsInfo,function(v){form.parentNeedsInfo=v;}));
+  hint('Opisz kiedy i jak przekazałam rodzicowi ważną informację o dziecku.');
+
+  sec('IV. Praca zespołowa','#F5F0FF');
+  stars('scale_team','Samoocena obszaru: Praca zespołowa');
+  container.appendChild(textarea('Współpraca z zespołem',form.teamwork,function(v){form.teamwork=v;}));
+  hint('Jak komunikuję się z koleżankami? Czy chętnie dzielę się pomysłami i proszę o pomoc?');
+  container.appendChild(textarea('Trudne sytuacje w pracy — jak je rozwiązuję',form.teamConflict,function(v){form.teamConflict=v;}));
+  hint('Opisz sytuację stresującą. Jakich zasobów użyłam do jej rozwiązania?');
+
+  sec('V. Rozwój zawodowy','#FFF0F0');
+  stars('scale_development','Samoocena obszaru: Rozwój zawodowy');
+  container.appendChild(textarea('Podnoszenie kwalifikacji (szkolenia, kursy, lektury)',form.qualifications,function(v){form.qualifications=v;}));
+  hint('Jakie szkolenia ukończyłam w tym roku? Co chciałabym jeszcze zrobić?');
+  container.appendChild(textarea('Co chcę poprawić lub rozwinąć u siebie',form.selfDevelopment,function(v){form.selfDevelopment=v;}));
+  hint('Które kompetencje uważam za swoje mocne strony, a które wymagają pracy?');
+
+  sec('VI. Podsumowanie i wnioski','#E8F8E8');
+  container.appendChild(textarea('Moje największe sukcesy i osiągnięcia',form.achievements,function(v){form.achievements=v;}));
+  hint('Z czego jestem najbardziej dumna w tym roku?');
+  container.appendChild(textarea('Co chciałabym zmienić lub zrobić inaczej',form.changes,function(v){form.changes=v;}));
+  container.appendChild(textarea('Wnioski do dalszej pracy',form.conclusions,function(v){form.conclusions=v;}));
+  hint('Jakie mam plany i cele na kolejny rok?');
+
+  // Priorytety
+  var prioCard=el('div',{style:'background:#FFFBE8;border:2px solid #F4A94E;border-radius:14px;padding:14px;margin:14px 0'});
+  prioCard.appendChild(el('div',{style:'font-weight:800;font-size:13px;margin-bottom:10px;color:#c07800'},'🎯 Moje 3 priorytety na kolejny kwartał'));
+  prioCard.appendChild(el('div',{style:'font-size:11px;color:var(--lt);margin-bottom:10px'},'Konkretne, mierzalne cele — co chcę osiągnąć lub poprawić.'));
+  ['priority1','priority2','priority3'].forEach(function(k,i){
+    var row=el('div',{style:'display:flex;align-items:center;gap:8px;margin-bottom:8px'});
+    row.appendChild(el('span',{style:'font-size:18px;font-weight:800;color:#F4A94E;min-width:24px'},(i+1)+'.'));
+    var inp2=el('input',{class:'fi',placeholder:'Priorytet '+(i+1)+'...',value:form[k]||''});
+    inp2.oninput=function(){form[k]=inp2.value;};
+    row.appendChild(inp2);
+    prioCard.appendChild(row);
+  });
+  container.appendChild(prioCard);
+
+  // Czego potrzebuję od dyrektora
+  var needCard=el('div',{style:'background:#F0F8FF;border:2px solid var(--p);border-radius:14px;padding:14px;margin-bottom:14px'});
+  needCard.appendChild(el('div',{style:'font-weight:800;font-size:13px;margin-bottom:6px;color:var(--p)'},'💬 Czego potrzebuję od dyrektora?'));
+  needCard.appendChild(el('div',{style:'font-size:11px;color:var(--lt);margin-bottom:8px'},'Szkolenie, wsparcie merytoryczne, rozmowa, sprzęt, inne — napisz śmiało.'));
+  var nta=el('textarea',{class:'fta',placeholder:'np. Proszę o szkolenie z metody Montessori / Potrzebuję wsparcia w kontakcie z rodzicem X...',rows:'3'});
+  nta.value=form.needsFromDirector||'';
+  nta.oninput=function(){form.needsFromDirector=nta.value;};
+  needCard.appendChild(nta);
+  container.appendChild(needCard);
+
+  container.appendChild(btn('💾 Zapisz samoocenę','btn-p full',function(){
+    var avgScale=0, cnt=0;
+    ['scale_children','scale_planning','scale_parents','scale_team','scale_development'].forEach(function(k){if(form[k]){avgScale+=form[k];cnt++;}});
+    form._avgScale=cnt?Math.round(avgScale/cnt*10)/10:0;
     const entry=Object.assign({},form,{id:uid()});
     setLog("employeeEvals",emp.id,[entry].concat(S.employeeEvals[emp.id]||[]));
     logChange('Samoocena: '+emp.name);
-    showToast('Samoocena zapisana');
+    showToast('Samoocena zapisana ✓');
     renderSavedEvals(container,emp);
   }));
   renderSavedEvals(container,emp);
 }
 
 function renderSavedEvals(container, emp){
-  let old=container.querySelector('.saved-evals');
+  var old=container.querySelector('.saved-evals');
   if(old)old.remove();
-  const evals=(S.employeeEvals[emp.id]||[]).filter(function(e){return e.type!=='criteria';});
+  var evals=(S.employeeEvals[emp.id]||[]).filter(function(e){return e.type!=='criteria';});
   if(!evals.length)return;
-  const wrap=el('div',{class:'saved-evals',style:'margin-top:14px'});
+  var wrap=el('div',{class:'saved-evals',style:'margin-top:14px'});
   wrap.appendChild(el('div',{style:'font-weight:700;font-size:13px;margin-bottom:8px'},'Historia samoocen ('+evals.length+')'));
-  evals.forEach(function(e){
-    const row=el('div',{style:'display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 8px;background:var(--bg);border-radius:8px;margin-bottom:5px'});
-    row.appendChild(el('span',{},'<strong>'+e.date+'</strong> — '+(e.conclusions||'').slice(0,50)+'...'));
-    const pb=btn('🖨️','btn-pr',function(){printEval(emp,e);});
+  evals.slice().reverse().forEach(function(e){
+    var avg=e._avgScale||0;
+    // Color-code by average score
+    var scoreColor='var(--lt)';
+    var scoreBg='var(--bg)';
+    if(avg>=4){scoreColor='var(--g)';scoreBg='#F0FFF6';}
+    else if(avg>=3){scoreColor='var(--p)';scoreBg='#EEF4FF';}
+    else if(avg>=2){scoreColor='var(--a)';scoreBg='#FFF8EE';}
+    else if(avg>0){scoreColor='var(--r)';scoreBg='#FFF0F2';}
+    var stars='';
+    if(avg>0){for(var i=1;i<=5;i++){stars+=(i<=Math.round(avg)?'★':'☆');}}
+    var row=el('div',{style:'display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:'+scoreBg+';border-radius:10px;margin-bottom:6px;border:1px solid var(--br)'});
+    var left=el('div',{style:'flex:1'});
+    left.appendChild(el('div',{style:'font-size:13px;font-weight:700'},e.date+(e.period?' ('+e.period+')':'')));
+    if(avg>0)left.appendChild(el('div',{style:'font-size:12px;color:'+scoreColor+';font-weight:700'},stars+' '+avg.toFixed(1)+'/5'));
+    if(e.conclusions)left.appendChild(el('div',{style:'font-size:11px;color:var(--lt);margin-top:2px'},(e.conclusions||'').slice(0,60)+'…'));
+    row.appendChild(left);
+    var pb=btn('🖨️','btn-pr',function(){printEval(emp,e);});
     row.appendChild(pb);
     wrap.appendChild(row);
   });
@@ -1108,14 +1539,27 @@ function renderSavedEvals(container, emp){
 }
 
 function buildDiagnosisForm(container, emp){
-  let form={date:today(),q_planning:'',q_concept:'raczej tak',q_individual:'',q_methods:'tak',q_childKnowledge:'tak, każde dziecko',q_development:'',q_monitoring:'tak',q_activation:'',q_parents:'tak',q_communicate:'',q_teamwork:'',q_teamCheck:[],q_localImage:'tak',q_parentOpinion:'',q_cooperationSufficient:'tak'};
+  let form={date:today(),
+    q_planning:'',q_concept:'raczej tak',q_individual:'',q_methods:'tak',
+    q_childKnowledge:'tak, każde dziecko',q_development:'',q_monitoring:'tak',
+    q_activation:'',q_parents:'tak',q_communicate:'',q_teamwork:'',
+    q_localImage:'tak',q_parentOpinion:'',
+    // Nowe pola
+    q_hardestMoment:'',      // Najtrudniejszy moment w pracy
+    q_successMoment:'',      // Chwila sukcesu
+    q_safetyKnowledge:'tak', // Znajomość procedur bezpieczeństwa
+    q_documentationOk:'tak', // Dokumentacja na bieżąco
+    q_needsSupport:'',       // W czym potrzebuję wsparcia
+    q_ownStrengths:''        // Moje mocne strony
+  };
   container.appendChild(el('div',{style:'font-size:13px;color:var(--lt);margin-bottom:12px'},'Diagnoza obszarów wymagających poprawy'));
   container.appendChild(inp('Data',form.date,function(v){return form.date=v;},{type:'date'}));
+
   function radio(key,opts){
     const wrap=el('div',{style:'display:flex;flex-direction:column;gap:5px;margin-bottom:12px'});
     opts.forEach(function(o){
       const lbl=el('label',{style:'display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer'});
-      const r=el('input',{type:'radio',name:emp.id+'_'+key,value:o});
+      const r=el('input',{type:'radio',name:emp.id+'_diag_'+key,value:o});
       if(form[key]===o)r.checked=true;
       r.onchange=function(){form[key]=o;};
       lbl.appendChild(r);lbl.appendChild(el('span',{},o));
@@ -1123,31 +1567,94 @@ function buildDiagnosisForm(container, emp){
     });
     return wrap;
   }
-  container.appendChild(el('div',{class:'fl'},'Jak odbywają się prace nad przygotowaniem i monitorowaniem Twojej pracy?'));
-  container.appendChild(textarea('',form.q_planning,function(v){return form.q_planning=v;}));
-  container.appendChild(el('div',{class:'fl'},'Czy koncepcja Twojej pracy uwzględnia potrzeby dzieci?'));
+  function q(label,hint){
+    var w=el('div',{style:'margin-bottom:4px'});
+    w.appendChild(el('div',{class:'fl'},label));
+    if(hint)w.appendChild(el('div',{style:'font-size:11px;color:var(--lt);font-style:italic;margin-bottom:5px'},'💡 '+hint));
+    return w;
+  }
+  function secD(title,color){
+    var h=el('div',{style:'background:'+color+';border-radius:10px;padding:8px 12px;margin:16px 0 8px;font-weight:800;font-size:13px'});
+    h.textContent=title;container.appendChild(h);
+  }
+
+  secD('I. Planowanie i realizacja pracy','#EEF4FF');
+  container.appendChild(q('Jak przygotowujesz i monitorujesz swoją pracę?','Opisz jak tworzysz plany, czy je weryfikujesz, co zmieniasz w trakcie miesiąca.'));
+  container.appendChild(textarea('',form.q_planning,function(v){form.q_planning=v;}));
+  container.appendChild(q('Czy koncepcja pracy uwzględnia potrzeby dzieci w grupie?'));
   container.appendChild(radio('q_concept',['tak, wszystkie w pełni','raczej tak','nie uwzględnia']));
-  container.appendChild(el('div',{class:'fl'},'Jak potrzeby dzieci wpływają na planowanie pracy?'));
-  container.appendChild(textarea('',form.q_individual,function(v){return form.q_individual=v;}));
-  container.appendChild(el('div',{class:'fl'},'Czy stosuję różnorodne metody pracy?'));
-  container.appendChild(radio('q_methods',['tak','nie']));
-  container.appendChild(el('div',{class:'fl'},'Czy potrafię scharakteryzować każde dziecko?'));
-  container.appendChild(radio('q_childKnowledge',['tak, każde dziecko','tak, ale tylko część','nie']));
-  container.appendChild(el('div',{class:'fl'},'Jak pracuję nad rozwijaniem zainteresowań dzieci?'));
-  container.appendChild(textarea('',form.q_development,function(v){return form.q_development=v;}));
-  container.appendChild(el('div',{class:'fl'},'Jak zachęcam dzieci do różnorodnych aktywności?'));
-  container.appendChild(textarea('',form.q_activation,function(v){return form.q_activation=v;}));
-  container.appendChild(el('div',{class:'fl'},'Jak doskonalimy umiejętność pracy zespołowej?'));
-  container.appendChild(textarea('',form.q_teamwork,function(v){return form.q_teamwork=v;}));
-  container.appendChild(el('div',{class:'fl'},'Czy placówka jest pozytywnie postrzegana w środowisku?'));
-  container.appendChild(radio('q_localImage',['tak','raczej tak','nie']));
-  container.appendChild(el('div',{class:'fl'},'Jak placówka pozyskuje opinie rodziców?'));
-  container.appendChild(textarea('',form.q_parentOpinion,function(v){return form.q_parentOpinion=v;}));
+  container.appendChild(q('Jak potrzeby indywidualne dzieci wpływają na Twoje planowanie?','Podaj konkretny przykład dostosowania aktywności do możliwości dziecka.'));
+  container.appendChild(textarea('',form.q_individual,function(v){form.q_individual=v;}));
+
+  secD('II. Praca z dziećmi','#F0FFF6');
+  container.appendChild(q('Czy stosujesz różnorodne metody i formy pracy?'));
+  container.appendChild(radio('q_methods',['tak, regularnie różnicuję','zazwyczaj tak','rzadko stosuję różnorodność']));
+  container.appendChild(q('Czy potrafisz scharakteryzować każde dziecko w grupie?','Zainteresowania, temperament, sposób reagowania, mocne strony.'));
+  container.appendChild(radio('q_childKnowledge',['tak, każde dziecko','tak, ale tylko część','mam trudności z niektórymi dziećmi']));
+  container.appendChild(q('Jak monitorujesz i wspierasz rozwój dzieci?','Arkusze obserwacji, rozmowy z rodzicami, dokumentacja zdjęciowa.'));
+  container.appendChild(textarea('',form.q_development,function(v){form.q_development=v;}));
+  container.appendChild(q('Jak aktywizujesz dzieci — szczególnie te wycofane lub mniej śmiałe?','Co robisz, gdy dziecko nie chce uczestniczyć w zajęciach?'));
+  container.appendChild(textarea('',form.q_activation,function(v){form.q_activation=v;}));
+
+  secD('III. Współpraca z rodzicami','#FFF8EE');
+  container.appendChild(q('Jak oceniasz swoje kontakty z rodzicami?'));
+  container.appendChild(radio('q_parents',['bardzo dobra współpraca','dobra współpraca','są obszary do poprawy','mam trudności we współpracy']));
+  container.appendChild(q('Opisz sytuację trudną z rodzicem — jak ją rozwiązałaś?','Nie musisz podawać nazwiska. Chodzi o Twój sposób działania.'));
+  container.appendChild(textarea('',form.q_communicate,function(v){form.q_communicate=v;}));
+
+  secD('IV. Praca zespołowa i instytucja','#F5F0FF');
+  container.appendChild(q('Jak współpracujesz z innymi opiekunkami i dyrekcją?','Czy chętnie dzielisz się pomysłami, prosisz o pomoc?'));
+  container.appendChild(textarea('',form.q_teamwork,function(v){form.q_teamwork=v;}));
+  container.appendChild(q('Czy znasz i stosujesz procedury bezpieczeństwa w żłobku?'));
+  container.appendChild(radio('q_safetyKnowledge',['tak, znam i stosuję','znam, ale nie zawsze stosuję','mam braki w tej wiedzy']));
+  container.appendChild(q('Czy dokumentacja (dziennik, obserwacje) jest prowadzona na bieżąco?'));
+  container.appendChild(radio('q_documentationOk',['tak, regularnie','zazwyczaj tak','mam zaległości']));
+
+  secD('V. Refleksja i rozwój','#FFF0F0');
+  container.appendChild(q('Opisz najtrudniejszy moment w Twojej pracy w tym roku','Co się wydarzyło? Jak sobie poradziłaś? Co zrobiłabyś inaczej?'));
+  container.appendChild(textarea('',form.q_hardestMoment,function(v){form.q_hardestMoment=v;}));
+  container.appendChild(q('Opisz chwilę, z której jesteś dumna','Sukces z dzieckiem, z rodzicem, własne osiągnięcie.'));
+  container.appendChild(textarea('',form.q_successMoment,function(v){form.q_successMoment=v;}));
+  container.appendChild(q('Moje mocne strony jako opiekunki'));
+  container.appendChild(textarea('',form.q_ownStrengths,function(v){form.q_ownStrengths=v;}));
+  container.appendChild(q('W czym potrzebuję wsparcia lub dokształcenia?','Szkolenia, konsultacje, dodatkowe materiały.'));
+  container.appendChild(textarea('',form.q_needsSupport,function(v){form.q_needsSupport=v;}));
+
   container.appendChild(btn('💾 Zapisz diagnozę','btn-p btn-sm',function(){
     const diags=S.employeeDiagnosis[emp.id]||[];
     setLog("employeeDiagnosis",emp.id,[Object.assign({},form,{id:uid()})].concat(diags));
-    logChange('Diagnoza: '+emp.name);showToast('Diagnoza zapisana');
+    logChange('Diagnoza: '+emp.name);showToast('Diagnoza zapisana ✓');
+    // show history after save
+    var old=container.querySelector('.saved-diags');if(old)old.remove();
+    var diags2=S.employeeDiagnosis[emp.id]||[];
+    if(diags2.length){
+      var dw=el('div',{class:'saved-diags',style:'margin-top:14px'});
+      dw.appendChild(el('div',{style:'font-weight:700;font-size:13px;margin-bottom:8px'},'Historia diagnoz ('+diags2.length+')'));
+      diags2.forEach(function(e){
+        var row=el('div',{style:'display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 8px;background:var(--bg);border-radius:8px;margin-bottom:5px'});
+        row.appendChild(el('span',{},'<strong>'+e.date+'</strong>'));
+        var pb=btn('🖨️','btn-pr',function(){printDiagnosis(emp,e);});
+        row.appendChild(pb);
+        dw.appendChild(row);
+      });
+      container.appendChild(dw);
+    }
   }));
+  // Show existing diagnoses history
+  (function(){
+    var diags3=S.employeeDiagnosis[emp.id]||[];
+    if(!diags3.length)return;
+    var dw=el('div',{class:'saved-diags',style:'margin-top:14px'});
+    dw.appendChild(el('div',{style:'font-weight:700;font-size:13px;margin-bottom:8px'},'Historia diagnoz ('+diags3.length+')'));
+    diags3.forEach(function(e){
+      var row=el('div',{style:'display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 8px;background:var(--bg);border-radius:8px;margin-bottom:5px'});
+      row.appendChild(el('span',{},'<strong>'+e.date+'</strong>'));
+      var pb=btn('🖨️','btn-pr',function(){printDiagnosis(emp,e);});
+      row.appendChild(pb);
+      dw.appendChild(row);
+    });
+    container.appendChild(dw);
+  }());
 }
 
 function buildCriteriaForm(container, emp){
@@ -1206,8 +1713,8 @@ function renderAdmin(main){
     const row=el('div',{style:'display:flex;gap:10px'});
     row.appendChild(btn('Anuluj','btn-o full',function(){confirmDeleteTarget=null;render();}));
     row.appendChild(btn('Usuń','btn-r full',function(){
-      if(confirmDeleteTarget.type==='child')setState({children:S.children.filter(function(c){return c.id!==confirmDeleteTarget.id;})});
-      else setState({users:S.users.filter(function(u){return u.id!==confirmDeleteTarget.id;})});
+      if(confirmDeleteTarget.type==='child'){setState({children:S.children.filter(function(c){return c.id!==confirmDeleteTarget.id;})});}
+      else{var delId=confirmDeleteTarget.id;var newDeleted=(S.deletedUserIds||[]).concat([delId]);setState({users:S.users.filter(function(u){return u.id!==delId;}),deletedUserIds:newDeleted});}
       showToast('Usunięto: '+confirmDeleteTarget.name);
       confirmDeleteTarget=null;render();
     }));
@@ -1216,7 +1723,7 @@ function renderAdmin(main){
     main.appendChild(bg);
   }
   const tabs=el('div',{class:'tabs'});
-  [['children','👶 Dzieci'],['users','👥 Pracownicy'],['terminy','📅 Terminy'],['log','📜 Historia']].forEach(function(tab){var id=tab[0],lbl=tab[1];
+  [['children','👶 Dzieci'],['users','👥 Pracownicy'],['kadry','🗂️ Kadry HR'],['terminy','📅 Terminy'],['log','📜 Historia']].forEach(function(tab){var id=tab[0],lbl=tab[1];
     const t=el('button',{class:'tab'+(adminTab===id?' active':'')},lbl);
     t.onclick=function(){adminTab=id;render();};
     tabs.appendChild(t);
@@ -1224,6 +1731,7 @@ function renderAdmin(main){
   main.appendChild(tabs);
   if(adminTab==='children') renderAdminChildren(main);
   else if(adminTab==='users') renderAdminUsers(main);
+  else if(adminTab==='kadry') renderAdminKadry(main);
   else if(adminTab==='terminy') renderAdminTerminy(main);
   else renderAdminLog(main);
 }
@@ -1535,6 +2043,11 @@ function ensureStateFields(){
   if(!S.photoConsent)S.photoConsent={};
   if(!S.groupNotes)S.groupNotes={};
   if(!S.deadlines)S.deadlines={obs:[],selfEval:[],criteria:[],diagnosis:[]};
+  if(!S.hrDeadlines)S.hrDeadlines={};
+  if(!S.deletedUserIds)S.deletedUserIds=[];
+  if(!S.monthlyPlans)S.monthlyPlans={};
+  if(!S.checkinLog)S.checkinLog={};
+  if(!S.safetyNotes)S.safetyNotes=[];
   if(!S.capacity)S.capacity={'Grupa 1':26,'Grupa 2':17};
   if(!S.childHistory)S.childHistory={};
   if(!S.groups)S.groups=['Grupa 1','Grupa 2'];
@@ -1807,6 +2320,105 @@ function renderTerminy(main){
   renderBucket(future,'Przyszłe','var(--lt)','⚪');
   if(isAdmin())renderAdminTerminy(main);
 }
+function renderAdminKadry(main){
+  var HR_TYPES=[
+    {key:'umowa',label:'Umowa o pracę',icon:'📄',color:'#EEF4FF',borderColor:'var(--p)'},
+    {key:'bhp',label:'Szkolenie BHP',icon:'🦺',color:'#FFF8EE',borderColor:'var(--a)'},
+    {key:'pierwsza_pomoc',label:'Kurs pierwszej pomocy',icon:'🩹',color:'#FFF0F2',borderColor:'var(--r)'},
+    {key:'medycyna',label:'Badania medycyny pracy',icon:'🩺',color:'#F0FFF6',borderColor:'var(--g)'}
+  ];
+  var workers=(S.users||[]).filter(function(u){return u.role!=='admin';});
+  main.appendChild(el('div',{style:'font-size:13px;color:var(--lt);margin-bottom:14px'},'Monitoruj terminy ważności dokumentów kadrowych dla każdego pracownika.'));
+
+  // Summary alert bar — show who has expired/expiring soon
+  var today2=today();
+  var alerts=[];
+  workers.forEach(function(u){
+    var ud=(S.hrDeadlines&&S.hrDeadlines[u.id])||{};
+    HR_TYPES.forEach(function(ht){
+      var entry=ud[ht.key];
+      if(entry&&entry.date){
+        var diff=Math.ceil((new Date(entry.date)-new Date(today2))/(1000*60*60*24));
+        if(diff<0)alerts.push({name:u.name,label:ht.label,diff:diff,color:'#FFF0F2',border:'var(--r)',icon:'❗'});
+        else if(diff<=30)alerts.push({name:u.name,label:ht.label,diff:diff,color:'#FFF8EE',border:'var(--a)',icon:'⚠️'});
+      }
+    });
+  });
+  if(alerts.length){
+    var ab2=el('div',{class:'card',style:'margin-bottom:14px;border:2px solid var(--r)'});
+    ab2.appendChild(el('div',{style:'font-weight:800;font-size:13px;margin-bottom:8px;color:var(--r)'},'⚠️ Uwaga! Terminy do sprawdzenia'));
+    alerts.forEach(function(a){
+      var msg=a.diff<0?'WYGASŁ '+Math.abs(a.diff)+' dni temu':'Za '+a.diff+' dni';
+      var alertRow=el('div',{style:'display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--br);font-size:12px'});
+      var alertLeft=el('span',{},a.icon+' ');
+      var alertName=el('strong',{},a.name);
+      alertLeft.appendChild(alertName);
+      alertLeft.appendChild(document.createTextNode(' — '+a.label));
+      var alertBadge=el('span',{style:'font-weight:700;color:'+(a.diff<0?'var(--r)':'var(--a)')},msg);
+      alertRow.appendChild(alertLeft);alertRow.appendChild(alertBadge);
+      ab2.appendChild(alertRow);
+    });
+    main.appendChild(ab2);
+  }
+
+  // Per-employee cards
+  workers.forEach(function(u){
+    var ud=(S.hrDeadlines&&S.hrDeadlines[u.id])||{};
+    var card=el('div',{class:'card',style:'margin-bottom:12px'});
+    var header=el('div',{style:'display:flex;align-items:center;gap:10px;margin-bottom:12px'});
+    var av=el('div',{class:'avatar'},initials(u.name));
+    header.appendChild(av);
+    header.appendChild(el('div',{style:'font-weight:800;font-size:14px'},u.name));
+    card.appendChild(header);
+
+    HR_TYPES.forEach(function(ht){
+      var entry=ud[ht.key]||{date:'',note:''};
+      var row=el('div',{style:'background:'+ht.color+';border:1px solid '+ht.borderColor+';border-radius:10px;padding:10px 12px;margin-bottom:8px'});
+      var topRow=el('div',{style:'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px'});
+      topRow.appendChild(el('div',{style:'font-weight:700;font-size:12px'},ht.icon+' '+ht.label));
+
+      // Status badge
+      var statusEl=el('span',{style:'font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:#fff'});
+      if(entry.date){
+        var diff2=Math.ceil((new Date(entry.date)-new Date(today2))/(1000*60*60*24));
+        if(diff2<0){statusEl.style.background='#FFF0F2';statusEl.style.color='var(--r)';statusEl.textContent='WYGASŁ';}
+        else if(diff2===0){statusEl.style.background='#FFF8EE';statusEl.style.color='var(--a)';statusEl.textContent='Dziś!';}
+        else if(diff2<=30){statusEl.style.background='#FFF8EE';statusEl.style.color='var(--a)';statusEl.textContent='Za '+diff2+' dni';}
+        else{statusEl.style.background='#F0FFF6';statusEl.style.color='var(--g)';statusEl.textContent='OK — '+diff2+' dni';}
+      }else{statusEl.textContent='Brak danych';statusEl.style.color='var(--lt)';}
+      topRow.appendChild(statusEl);
+      row.appendChild(topRow);
+
+      // Date input
+      var dateRow=el('div',{style:'display:flex;gap:8px;align-items:center'});
+      var dateInp=el('input',{type:'date',value:entry.date,style:'border:1px solid var(--br);border-radius:8px;padding:5px 8px;font-size:12px;background:#fff;font-family:inherit;flex:1'});
+      dateInp.onchange=function(){
+        entry.date=dateInp.value;
+        if(!S.hrDeadlines)S.hrDeadlines={};
+        if(!S.hrDeadlines[u.id])S.hrDeadlines[u.id]={};
+        if(!S.hrDeadlines[u.id][ht.key])S.hrDeadlines[u.id][ht.key]={};
+        S.hrDeadlines[u.id][ht.key].date=dateInp.value;
+        save(S);render();
+      };
+      dateRow.appendChild(dateInp);
+
+      // Note input
+      var noteInp=el('input',{type:'text',value:entry.note||'',placeholder:'Notatka (opcjonalnie)',style:'border:1px solid var(--br);border-radius:8px;padding:5px 8px;font-size:12px;background:#fff;font-family:inherit;flex:2'});
+      noteInp.onchange=function(){
+        if(!S.hrDeadlines)S.hrDeadlines={};
+        if(!S.hrDeadlines[u.id])S.hrDeadlines[u.id]={};
+        if(!S.hrDeadlines[u.id][ht.key])S.hrDeadlines[u.id][ht.key]={};
+        S.hrDeadlines[u.id][ht.key].note=noteInp.value;
+        save(S);
+      };
+      dateRow.appendChild(noteInp);
+      row.appendChild(dateRow);
+      card.appendChild(row);
+    });
+    main.appendChild(card);
+  });
+}
+
 function renderAdminTerminy(main){
   var TYPES=[{key:'obs',label:'Obserwacje dzieci'},{key:'selfEval',label:'Samoocena pracownika'},{key:'criteria',label:'Ocena kryteriów'},{key:'diagnosis',label:'Diagnoza obszarów'}];
   var ac=el('div',{class:'card',style:'border-color:var(--p);border-width:2px;margin-top:14px'});
@@ -1846,7 +2458,9 @@ function applyRemote(remote){
   S=Object.assign({},remote,{currentUser:cu});
   ensureStateFields();
   var bi=INIT_USERS.map(function(u){return u.id;});
-  S.users=INIT_USERS.concat((S.users||[]).filter(function(u){return bi.indexOf(u.id)===-1;}));
+  var deleted=S.deletedUserIds||[];
+  var extraU=(S.users||[]).filter(function(u){return bi.indexOf(u.id)===-1&&deleted.indexOf(u.id)===-1;});
+  S.users=INIT_USERS.filter(function(u){return deleted.indexOf(u.id)===-1;}).concat(extraU);
   if(!S.children||!S.children.length){S.children=INIT_CHILDREN.slice();}
   else{S.children=S.children.map(function(e){var f=INIT_CHILDREN.find(function(c){return c.id===e.id;});return f?Object.assign({},e,{pesel:f.pesel||e.pesel,dob:f.dob||e.dob}):e;});}
   saveLocal(S);
@@ -1870,6 +2484,7 @@ function boot(){
     }).catch(function(e){console.warn('SB failed:',e);ensureStateFields();doRender();});
   }else{ensureStateFields();doRender();}
 }
+window.addEventListener('beforeunload',function(){flushSave();});
 window.addEventListener('error',function(e){
   console.error('Global error:',e.message);
   var app=document.getElementById('app');
@@ -1903,6 +2518,7 @@ function confirmDelete(msg,onYes){
 }
 function closeDelModal(){document.getElementById('del-modal').style.display='none';}
 </script>
-</body></html>
 </body>
 </html>
+
+</body></html>

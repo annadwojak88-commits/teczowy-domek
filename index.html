@@ -263,12 +263,32 @@ S.currentUser = null;
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function uid(){return Math.random().toString(36).slice(2,10)}
 function today(){return new Date().toISOString().slice(0,10)}
-function getAgeMonths(dob){if(!dob)return 24;const d=new Date(dob),n=new Date();return(n.getFullYear()-d.getFullYear())*12+n.getMonth()-d.getMonth()}
-function getSchoolYearStart(){const now=new Date();const yr=now.getMonth()>=8?now.getFullYear():now.getFullYear()-1;return new Date(yr,8,1);}
-function getAgeMonthsAtSep(dob){if(!dob)return 24;const d=new Date(dob),sep=getSchoolYearStart();return(sep.getFullYear()-d.getFullYear())*12+sep.getMonth()-d.getMonth();}
-function getAgeGroup(dob){if(!dob)return'19-24';const m=getAgeMonthsAtSep(dob);if(m<=18)return'12-18';if(m<=24)return'19-24';return'25-36';}
-function getSchoolYearLabel(){const sep=getSchoolYearStart();return sep.getFullYear()+'/'+(sep.getFullYear()+1);}
-function getAge(dob){if(!dob)return'—';const m=getAgeMonths(dob);if(m<12)return m+' m-c';return Math.floor(m/12)+' l. '+(m%12)+' m-c'}
+function getAgeMonths(dob){
+  if(!dob)return 24;
+  var d=new Date(dob),n=new Date();
+  var months=(n.getFullYear()-d.getFullYear())*12+(n.getMonth()-d.getMonth());
+  if(n.getDate()<d.getDate())months--;
+  return Math.max(0,months);
+}
+function getSchoolYearStart(){var now=new Date();var yr=now.getMonth()>=8?now.getFullYear():now.getFullYear()-1;return new Date(yr,8,1);}
+function getAgeMonthsAtSep(dob){
+  if(!dob)return 24;
+  var d=new Date(dob),sep=getSchoolYearStart();
+  var months=(sep.getFullYear()-d.getFullYear())*12+(sep.getMonth()-d.getMonth());
+  if(sep.getDate()<d.getDate())months--;
+  return Math.max(0,months);
+}
+function getAgeGroup(dob){if(!dob)return'19-24';var m=getAgeMonthsAtSep(dob);if(m<=18)return'12-18';if(m<=24)return'19-24';return'25-36';}
+function getSchoolYearLabel(){var sep=getSchoolYearStart();return sep.getFullYear()+'/'+(sep.getFullYear()+1);}
+function getAge(dob){
+  if(!dob)return'—';
+  var m=getAgeMonths(dob);
+  if(m<1)return'0 m-c';
+  if(m<12)return m+' m-c';
+  var yrs=Math.floor(m/12),mos=m%12;
+  if(mos===0)return yrs+' '+(yrs===1?'rok':yrs<5?'lata':'lat');
+  return yrs+' '+(yrs===1?'rok':yrs<5?'lata':'lat')+' '+mos+' m-c';
+}
 function childColor(id){return CHILD_COLORS[id.charCodeAt(0)%CHILD_COLORS.length]}
 function initials(name){return name.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()}
 function setState(patch){
@@ -472,6 +492,7 @@ function inp(label, val, onChange, opts){
   if(label)d.appendChild(el('label',{class:'fl'},label));
   const i=el('input',{class:'fi',type:opts.type||'text',placeholder:opts.placeholder||'',value:val});
   if(opts.max)i.setAttribute('maxlength',opts.max);
+  if(opts.maxlength)i.setAttribute('maxlength',opts.maxlength);
   if(opts.readonly)i.readOnly=true;
   i.oninput=function(){onChange(i.value);};
   d.appendChild(i);
@@ -770,7 +791,6 @@ function renderHome(main){
   }
 
   if(isAdmin()){
-  if(isAdmin()){
   const lc=el('div',{class:'card'});
   lc.appendChild(el('div',{style:'font-weight:800;font-size:14px;margin-bottom:10px'},'📝 Ostatnie zmiany'));
   if(!S.changeLog.length)lc.appendChild(el('div',{style:'font-size:12px;color:var(--lt)'},'Brak zmian'));
@@ -835,8 +855,6 @@ function renderChildView(main, child){
   else if(childTab==='accident') renderChildAccident(main,child);
   else if(childTab==='pickup') renderChildPickup(main,child);
   else if(childTab==='notes') renderChildNotes(main,child);
-  else if(childTab==='pickup') renderChildPickup(main,child);
-  else if(childTab==='notes') renderChildNotes(main,child);
 }
 
 function renderChildInfo(main, child){
@@ -844,7 +862,7 @@ function renderChildInfo(main, child){
   card.appendChild(el('div',{style:'font-weight:800;font-size:15px;color:var(--p);margin-bottom:14px'},'📋 Karta Informacyjna Dziecka'));
   if(!isAdmin()){
     // Read-only for non-admins
-    var fields=[['Imię i nazwisko',child.name],['Data urodzenia',child.dob||'—'],['PESEL',child.pesel||'—'],['Grupa',child.group]];
+    var fields=[['Imię i nazwisko',child.name],['Data urodzenia',child.dob||'—'],['PESEL',child.pesel||'—'],['Grupa',child.group],['Data przyjęcia',child.joinDate||'—'],['Data zakończenia',child.endDate||'—']];
     fields.forEach(function(f){
       var row=el('div',{style:'margin-bottom:12px'});
       row.innerHTML='<div style="font-size:11px;color:var(--lt);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">'+f[0]+'</div>'+
@@ -1736,8 +1754,55 @@ function renderAdmin(main){
   else renderAdminLog(main);
 }
 
+// ── CSV EXPORT HELPERS ────────────────────────────────────────────────────────
+function csvEscape(v){v=String(v==null?'':v);if(v.indexOf(',')!==-1||v.indexOf('"')!==-1||v.indexOf('\n')!==-1)return '"'+v.replace(/"/g,'""')+'"';return v;}
+function csvDownload(filename,rows){
+  var bom='﻿';
+  var csv=bom+rows.map(function(r){return r.map(csvEscape).join(',');}).join('\r\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(url);a.remove();},1000);
+}
+function exportChildren(){
+  var rows=[['Imię i nazwisko','Grupa','Data urodzenia','PESEL','Data przyjęcia','Data zakończenia','Alergie','Choroby przewlekłe','Leki stałe','Adres','Mat. imię i nazwisko','Mat. telefon','Oj. imię i nazwisko','Oj. telefon','Uwagi']];
+  S.children.forEach(function(c){
+    rows.push([c.name,c.group,c.dob||'',c.pesel||'',c.joinDate||'',c.endDate||'',c.allergies||'',c.chronicDiseases||'',c.permanentMeds||'',c.address||'',c.motherName||'',c.motherPhone||'',c.fatherName||'',c.fatherPhone||'',c.extraInfo||'']);
+  });
+  csvDownload('lista_dzieci.csv',rows);
+}
+function exportObservations(){
+  var rows=[['Data','Dziecko','Obszar','Treść obserwacji','Autor']];
+  Object.keys(S.observations||{}).forEach(function(childId){
+    var child=(S.children||[]).find(function(c){return c.id===childId;})||{name:childId};
+    var list=S.observations[childId]||[];
+    if(!Array.isArray(list))return;
+    list.forEach(function(e){
+      rows.push([e.date||'',child.name,e.area||e.category||'',(e.text||e.note||e.content||'').replace(/\n/g,' '),e.author||'']);
+    });
+  });
+  csvDownload('obserwacje.csv',rows);
+}
+function exportEmployeeEvals(){
+  var rows=[['Data','Pracownik','Średnia ocena','Samoocena','Uwagi kierownika']];
+  Object.keys(S.employeeEvals||{}).forEach(function(userId){
+    var user=(S.users||[]).find(function(u){return u.id===userId;})||{name:userId};
+    (S.employeeEvals[userId]||[]).forEach(function(e){
+      rows.push([e.date||'',user.name,(e._avgScale||0).toFixed(1),(e.selfNote||'').replace(/\n/g,' '),(e.evalNote||'').replace(/\n/g,' ')]);
+    });
+  });
+  csvDownload('oceny_pracownikow.csv',rows);
+}
+function exportChangeLog(){
+  var rows=[['Data i czas','Użytkownik','Akcja']];
+  (S.changeLog||[]).forEach(function(e){
+    rows.push([e.ts||'',e.user||'',(e.action||'').replace(/\n/g,' ')]);
+  });
+  csvDownload('historia_zmian.csv',rows);
+}
+
 function renderAdminChildren(main){
-  let newChild={name:'',group:'Grupa 1',dob:''};
+  let newChild={name:'',group:'Grupa 1',dob:'',pesel:'',joinDate:'',endDate:''};
   // Export buttons
   const expRow=el('div',{style:'display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap'});
   expRow.appendChild(btn('📥 Eksport lista dzieci','btn-pr',function(){exportChildren();}));
@@ -1749,10 +1814,16 @@ function renderAdminChildren(main){
   addCard.appendChild(el('div',{style:'font-weight:800;font-size:14px;color:var(--g);margin-bottom:12px'},'➕ Dodaj nowe dziecko'));
   addCard.appendChild(inp('Imię i nazwisko',newChild.name,function(v){return newChild.name=v;},{placeholder:'np. Jan Kowalski'}));
   addCard.appendChild(select('Grupa',newChild.group,['Grupa 1','Grupa 2'],function(v){newChild.group=v;}));
-  addCard.appendChild(inp('Data urodzenia (opcjonalnie)',newChild.dob,function(v){return newChild.dob=v;},{type:'date'}));
+  addCard.appendChild(inp('Data urodzenia',newChild.dob,function(v){return newChild.dob=v;},{type:'date'}));
+  addCard.appendChild(inp('PESEL',newChild.pesel,function(v){return newChild.pesel=v;},{placeholder:'np. 23041512345',maxlength:'11'}));
+  var sepAdd=el('div',{style:'font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;border-top:1px solid var(--br);padding-top:10px'});
+  sepAdd.textContent='📅 Okres uczęszczania';
+  addCard.appendChild(sepAdd);
+  addCard.appendChild(inp('Data przyjęcia (od)',newChild.joinDate,function(v){return newChild.joinDate=v;},{type:'date'}));
+  addCard.appendChild(inp('Data zakończenia (do)',newChild.endDate,function(v){return newChild.endDate=v;},{type:'date'}));
   addCard.appendChild(btn('➕ Dodaj dziecko','btn-g full',function(){
     if(!newChild.name.trim())return;
-    const c={id:uid(),name:newChild.name.trim(),dob:newChild.dob,group:newChild.group,pesel:'',address:'',motherName:'',motherPhone:'',fatherName:'',fatherPhone:'',allergies:'',chronicDiseases:'',permanentMeds:'',extraInfo:''};
+    const c={id:uid(),name:newChild.name.trim(),dob:newChild.dob,group:newChild.group,pesel:newChild.pesel||'',joinDate:newChild.joinDate||'',endDate:newChild.endDate||'',address:'',motherName:'',motherPhone:'',fatherName:'',fatherPhone:'',allergies:'',chronicDiseases:'',permanentMeds:'',extraInfo:''};
     setState({children:S.children.concat([c])});
     logChange('Dodano dziecko: '+c.name);showToast('Dodano: '+c.name);render();
   }));
@@ -1786,7 +1857,8 @@ function renderAdminChildren(main){
     const row=el('div',{style:'background:#fff;border:2px solid var(--br);border-radius:14px;padding:11px 13px;display:flex;align-items:center;gap:12px;margin-bottom:8px'});
     const av=el('div',{class:'ch-av',style:'background:'+childColor(c.id)+';width:38px;height:38px;font-size:13px'},initials(c.name));
     const info=el('div',{style:'flex:1;min-width:0'});
-    info.innerHTML='<div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+c.name+'</div><div style="font-size:11px;color:var(--lt)">'+c.group+(c.dob?' · ur. '+c.dob:'')+'</div>';
+    var subtitle=c.group+(c.dob?' · ur. '+c.dob:'')+(c.pesel?' · PESEL: '+c.pesel:'')+(c.joinDate?' · od '+c.joinDate:'');
+    info.innerHTML='<div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+c.name+'</div><div style="font-size:11px;color:var(--lt)">'+subtitle+'</div>';
     const db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0'},'🗑️');
     db.onclick=function(){confirmDeleteTarget={type:'child',id:c.id,name:c.name};render();};
     row.appendChild(av);row.appendChild(info);row.appendChild(db);
@@ -2109,16 +2181,20 @@ function renderBirthdays(main){
     var days=Object.keys(byMonth[m]).map(Number).sort(function(a,b){return a-b;});
     days.forEach(function(d){
       byMonth[m][d].forEach(function(c){
-        var yr=parseInt(c.dob.split('-')[0]),age=now.getFullYear()-yr;
         var bday=new Date(now.getFullYear(),m-1,d);
         var diff=Math.ceil((bday-now)/86400000);
         if(diff<0){bday=new Date(now.getFullYear()+1,m-1,d);diff=Math.ceil((bday-now)/86400000);}
         var isToday=m===mm&&d===dd,isSoon=diff<=7&&diff>=0;
+        // wiek który skończy (lub skończyło) w tym roku
+        var yr=parseInt(c.dob.split('-')[0]);
+        var bdayYear=isToday?now.getFullYear():(diff<0?now.getFullYear()+1:now.getFullYear());
+        var age=bdayYear-yr;
+        var ageLabel=age+' '+(age===1?'rok':age<5?'lata':'lat');
         var row=el('div',{style:'display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;margin-bottom:6px;background:'+(isToday?'#FFF8E1':isSoon?'#FFF0E6':'var(--bg)')+';border:1.5px solid '+(isToday?'var(--a)':isSoon?'var(--p)':'var(--br)')});
         var av=el('div',{class:'ch-av',style:'background:'+childColor(c.id)+';width:38px;height:38px;font-size:13px;flex-shrink:0'});
         av.textContent=initials(c.name);
         var info=el('div',{style:'flex:1'});
-        info.innerHTML='<div style="font-weight:800;font-size:14px">'+c.name+'</div><div style="font-size:12px;color:var(--lt)">'+d+'. '+MONTHS[m-1].toLowerCase()+' · '+c.group+' · kończy '+age+' lat</div>';
+        info.innerHTML='<div style="font-weight:800;font-size:14px">'+c.name+'</div><div style="font-size:12px;color:var(--lt)">'+d+'. '+MONTHS[m-1].toLowerCase()+' · '+c.group+' · '+(isToday?'kończy':'skończy')+' '+ageLabel+'</div>';
         var badge=el('div',{style:'flex-shrink:0;text-align:right'});
         if(isToday)badge.innerHTML='<div style="font-size:22px">🎉</div><div style="font-size:10px;font-weight:800;color:var(--a)">Dziś!</div>';
         else if(isSoon)badge.innerHTML='<div style="font-size:18px">🎈</div><div style="font-size:10px;font-weight:800;color:var(--p)">Za '+diff+' dni</div>';

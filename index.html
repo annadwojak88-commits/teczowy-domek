@@ -671,11 +671,12 @@ function renderHome(main){
   const allDeadlines=[
     ...(S.deadlines.obs||[]).map(function(d){return Object.assign({},d,{type:'obs',typeLbl:'Obserwacje dzieci'});}),
     ...(S.deadlines.selfEval||[]).map(function(d){return Object.assign({},d,{type:'selfEval',typeLbl:'Samoocena pracownika'});}),
-    ...(S.deadlines.criteria||[]).map(function(d){return Object.assign({},d,{type:'criteria',typeLbl:'Ocena kryteriów'});}),
-    ...(S.deadlines.diagnosis||[]).map(function(d){return Object.assign({},d,{type:'diagnosis',typeLbl:'Diagnoza obszarów'});}),
+    ...(S.deadlines.criteria||[]).map(function(d){return Object.assign({},d,{type:'criteria',typeLbl:'Ocena kryteriów (standardy opieki)'});}),
+    ...(S.deadlines.diagnosis||[]).map(function(d){return Object.assign({},d,{type:'diagnosis',typeLbl:'Diagnoza obszarów rozwoju'});}),
+    ...(S.deadlines.other||[]).map(function(d){return Object.assign({},d,{type:'other',typeLbl:'Inny termin'});}),
   ];
   const alertDeadlines=allDeadlines.filter(function(dl){
-    if(!isAdmin()&&dl.type==='obs'&&dl.groupTarget&&dl.groupTarget!==S.currentUser.group)return false;
+    if(!isAdmin()&&dl.groupTarget&&dl.groupTarget!==S.currentUser.group)return false;
     return deadlineStatus(dl)!==null;
   });
   const pending=vc.filter(function(c){
@@ -2116,8 +2117,13 @@ function renderAdminChildren(main){
     tabs.appendChild(t);
   });
   main.appendChild(tabs);
-  const srch=el('input',{class:'fi',placeholder:'🔍 Szukaj...',value:adminSearch,style:'margin-bottom:12px'});
-  srch.oninput=function(){adminSearch=srch.value;render();};
+  const srch=el('input',{class:'fi',id:'adminSearchInp',placeholder:'🔍 Szukaj dziecka...',value:adminSearch,style:'margin-bottom:12px',autocomplete:'off'});
+  srch.oninput=function(){
+    adminSearch=srch.value;var pos=srch.selectionStart;
+    render();
+    var n=document.getElementById('adminSearchInp');
+    if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}
+  };
   main.appendChild(srch);
   const filtered=S.children.filter(function(c){return (adminFilter==='Wszystkie'||c.group===adminFilter)&&c.name.toLowerCase().indexOf(adminSearch.toLowerCase())>-1;});
   if(!filtered.length){main.appendChild(el('div',{class:'empty'},'<div class="empty-icon">👶</div><div>Brak wyników</div>'));return;}
@@ -2381,7 +2387,8 @@ function ensureStateFields(){
   if(!S.childNotes)S.childNotes={};
   if(!S.photoConsent)S.photoConsent={};
   if(!S.groupNotes)S.groupNotes={};
-  if(!S.deadlines)S.deadlines={obs:[],selfEval:[],criteria:[],diagnosis:[]};
+  if(!S.deadlines)S.deadlines={obs:[],selfEval:[],criteria:[],diagnosis:[],other:[]};
+  ['obs','selfEval','criteria','diagnosis','other'].forEach(function(k){if(!S.deadlines[k])S.deadlines[k]=[];});
   if(!S.hrDeadlines)S.hrDeadlines={};
   if(!S.deletedUserIds)S.deletedUserIds=[];
   if(!S.monthlyPlans)S.monthlyPlans={};
@@ -2622,13 +2629,24 @@ function renderOccupancy(main){
   main.appendChild(dc);
 }
 
+var DEADLINE_TYPES=[
+  {key:'obs',label:'Obserwacje dzieci',icon:'👶',desc:'Opiekunki wypełniają obserwacje dzieci ze swojej grupy'},
+  {key:'diagnosis',label:'Diagnoza obszarów rozwoju',icon:'🧩',desc:'Diagnoza rozwoju dziecka w poszczególnych obszarach'},
+  {key:'criteria',label:'Ocena kryteriów (standardy opieki)',icon:'✅',desc:'Ocena spełniania kryteriów / standardów jakości opieki'},
+  {key:'selfEval',label:'Samoocena pracownika',icon:'🙋',desc:'Każdy pracownik wypełnia swoją samoocenę'},
+  {key:'other',label:'Inny termin',icon:'📌',desc:'Dowolny inny termin, np. zebranie, sprawozdanie, kontrola'}
+];
+function deadlineTypeOf(key){for(var i=0;i<DEADLINE_TYPES.length;i++){if(DEADLINE_TYPES[i].key===key)return DEADLINE_TYPES[i];}return DEADLINE_TYPES[DEADLINE_TYPES.length-1];}
 // ── TERMINY ───────────────────────────────────────────────────────────────────
 function renderTerminy(main){
   main.appendChild(el('div',{class:'section-title'},'📅 Terminy formularzy'));
   var now=new Date();
-  var TYPES=[{key:'obs',label:'Obserwacje dzieci'},{key:'selfEval',label:'Samoocena pracownika'},{key:'criteria',label:'Ocena kryteriów'},{key:'diagnosis',label:'Diagnoza obszarów'}];
+  var TYPES=DEADLINE_TYPES;
   var allDl=[];
-  TYPES.forEach(function(t){((S.deadlines&&S.deadlines[t.key])||[]).forEach(function(dl){allDl.push(Object.assign({},dl,{typeLbl:t.label}));});});
+  TYPES.forEach(function(t){((S.deadlines&&S.deadlines[t.key])||[]).forEach(function(dl){
+    if(!isAdmin()&&dl.groupTarget&&S.currentUser&&dl.groupTarget!==S.currentUser.group)return;
+    allDl.push(Object.assign({},dl,{typeLbl:t.icon+' '+t.label+(dl.groupTarget?' · '+dl.groupTarget:'')+(dl.note?' — '+dl.note:'')}));
+  });});
   if(!allDl.length){
     main.appendChild(el('div',{class:'card'},'Brak zaplanowanych terminów.'));
     if(isAdmin())renderAdminTerminy(main);return;
@@ -2759,27 +2777,33 @@ function renderAdminKadry(main){
 }
 
 function renderAdminTerminy(main){
-  var TYPES=[{key:'obs',label:'Obserwacje dzieci'},{key:'selfEval',label:'Samoocena pracownika'},{key:'criteria',label:'Ocena kryteriów'},{key:'diagnosis',label:'Diagnoza obszarów'}];
+  var TYPES=DEADLINE_TYPES;
   var ac=el('div',{class:'card',style:'border-color:var(--p);border-width:2px;margin-top:14px'});
   ac.appendChild(el('div',{style:'font-weight:800;font-size:14px;color:var(--p);margin-bottom:14px'},'⚙️ Zarządzaj terminami'));
-  var nf={label:'',date:'',type:'obs',groupTarget:''};
-  ac.appendChild(inp('Nazwa terminu',nf.label,function(v){nf.label=v;},{placeholder:'np. Obserwacje I półrocze'}));
-  ac.appendChild(inp('Data terminu',nf.date,function(v){nf.date=v;},{type:'date'}));
-  ac.appendChild(select('Rodzaj',nf.type,TYPES.map(function(t){return t.key;}),function(v){nf.type=v;}));
+  var nf={label:'',date:'',type:'obs',groupTarget:'',note:''};
+  var typeSel=select('Czego dotyczy termin?',nf.type,TYPES.map(function(t){return {v:t.key,l:t.icon+' '+t.label};}),function(v){nf.type=v;typeHint.textContent=deadlineTypeOf(v).desc;});
+  ac.appendChild(typeSel);
+  var typeHint=el('div',{style:'font-size:11px;color:var(--lt);margin:-6px 0 12px'},'');
+  typeHint.textContent=deadlineTypeOf(nf.type).desc;
+  ac.appendChild(typeHint);
+  ac.appendChild(inp('Nazwa terminu',nf.label,function(v){nf.label=v;},{placeholder:'np. Obserwacje – I półrocze 2026/27'}));
+  ac.appendChild(inp('Termin (do kiedy)',nf.date,function(v){nf.date=v;},{type:'date'}));
+  ac.appendChild(select('Dla kogo','all',[{v:'all',l:'Wszyscy (obie grupy)'}].concat((S.groups||['Grupa 1','Grupa 2']).map(function(g){return {v:g,l:g};})),function(v){nf.groupTarget=v==='all'?'':v;}));
+  ac.appendChild(inp('Notatka (opcjonalnie)',nf.note,function(v){nf.note=v;},{placeholder:'np. oddać w wersji papierowej'}));
   ac.appendChild(btn('➕ Dodaj termin','btn-p',function(){
     if(!nf.label.trim()||!nf.date){showToast('Wypełnij nazwę i datę');return;}
     var nd=Object.assign({},S.deadlines||{});
-    nd[nf.type]=(nd[nf.type]||[]).concat([{id:uid(),label:nf.label,date:nf.date,groupTarget:nf.groupTarget}]);
+    nd[nf.type]=(nd[nf.type]||[]).concat([{id:uid(),label:nf.label,date:nf.date,groupTarget:nf.groupTarget,note:nf.note}]);
     setState({deadlines:nd});logChange('Dodano termin: '+nf.label);showToast('Termin dodany');render();
   }));
   main.appendChild(ac);
   TYPES.forEach(function(type){
     var list=(S.deadlines&&S.deadlines[type.key])||[];if(!list.length)return;
     var lc=el('div',{class:'card',style:'margin-top:10px'});
-    lc.appendChild(el('div',{style:'font-weight:800;font-size:13px;margin-bottom:10px'},type.label));
+    lc.appendChild(el('div',{style:'font-weight:800;font-size:13px;margin-bottom:10px'},type.icon+' '+type.label));
     list.forEach(function(dl,i){
       var row=el('div',{style:'display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--br)'});
-      row.innerHTML='<div><div style="font-size:13px;font-weight:700">'+dl.label+'</div><div style="font-size:11px;color:var(--lt)">'+dl.date+'</div></div>';
+      row.innerHTML='<div><div style="font-size:13px;font-weight:700">'+dl.label+'</div><div style="font-size:11px;color:var(--lt)">'+dl.date+(dl.groupTarget?' · '+dl.groupTarget:' · obie grupy')+(dl.note?' · '+dl.note:'')+'</div></div>';
       var db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer'},'🗑️');
       db.onclick=function(){confirmDelete('Usunąć termin?',function(){
         var nd=Object.assign({},S.deadlines||{});

@@ -1352,14 +1352,15 @@ function planEntriesFor(p){
       {time:'15:00–15:45',type:'Zabawy dowolne',done:false,desc:'',sig:''}
     ],summary:''};
   }
-  var am=[p.topic?'Temat: '+p.topic:'',p.morning].filter(Boolean).join('\n');
-  var sum=[p.topic?'Temat dnia: '+p.topic:'',p.goal?'Cel: '+p.goal:'',p.notes].filter(Boolean).join('\n');
+  // Wpisujemy tylko temat dnia – resztę opiekunki uzupełniają same
+  var topic=p.topic||String(p.morning||'').split('\n')[0];
   return {entries:[
-    {time:'9:00–9:30',type:'Zajęcia dydaktyczne',done:false,desc:am,sig:''},
-    {time:'14:30–15:00',type:'Zajęcia muzyczno-ruchowe',done:false,desc:p.afternoon||'',sig:''},
+    {time:'9:00–9:30',type:'Zajęcia dydaktyczne',done:false,desc:topic,sig:''},
+    {time:'14:30–15:00',type:'Zajęcia muzyczno-ruchowe',done:false,desc:'',sig:''},
     {time:'15:00–15:45',type:'Zabawy dowolne',done:false,desc:'',sig:''}
-  ],summary:sum};
+  ],summary:''};
 }
+function planAllGroups(){return (S.groups&&S.groups.length?S.groups:['Grupa 1','Grupa 2']).slice();}
 function planAutoGrow(t){t.style.height='auto';t.style.height=(t.scrollHeight+2)+'px';}
 
 // ── DAILY LOG ─────────────────────────────────────────────────────────────────
@@ -1401,7 +1402,7 @@ function renderDaily(main){
             var parsed=JSON.parse(ev.target.result);
             if(!Array.isArray(parsed)){showToast('Błąd: plik JSON musi zawierać tablicę');return;}
             if(!S.monthlyPlans)S.monthlyPlans={};
-            S.monthlyPlans[curMonthKey]=parsed;
+            planAllGroups().forEach(function(g){S.monthlyPlans[dailyDate.substring(0,7)+'_'+g]=parsed;});
             save(S);showToast('Plan wczytany: '+parsed.length+' dni ✓');render();
           }catch(e){showToast('Błąd pliku JSON: '+e.message);}
         };
@@ -1415,17 +1416,16 @@ function renderDaily(main){
         if(!days.length){showToast('Nie znalazłam treści planu w pliku');return;}
         var msg;
         if(res.single){
-          msg='W pliku nie ma dat – cały tekst zostanie wpisany do dnia '+dailyDate.split('-').reverse().join('.')+' ('+grp+').\n\nTemat: '+(days[0].topic||'—')+'\n\nWczytać?';
+          msg='W pliku nie ma dat – temat zostanie wpisany do dnia '+dailyDate.split('-').reverse().join('.')+' we wszystkich grupach.\n\nTemat: '+(days[0].topic||'—')+'\n\nWczytać?';
         }else{
-          var withAm=days.filter(function(d){return d.morning;}).length,withPm=days.filter(function(d){return d.afternoon;}).length;
-          msg='Rozpoznano '+days.length+' dni planu ('+days[0].date+' – '+days[days.length-1].date+') dla: '+grp+'.\n'+
-            '• z zajęciami porannymi: '+withAm+'\n• z zajęciami popołudniowymi: '+withPm+'\n\n'+
-            'Np. '+days[0].date+': '+(days[0].topic||days[0].morning||'').slice(0,80)+'\n\n'+
+          msg='Rozpoznano '+days.length+' dni planu ('+days[0].date+' – '+days[days.length-1].date+') – dla wszystkich grup.\n'+
+            'Do dziennika zostanie wpisany tylko temat dnia.\n\n'+
+            'Np. '+days[0].date+': '+(days[0].topic||String(days[0].morning||'').split('\n')[0]).slice(0,80)+'\n\n'+
             'Wczytać? (Dni, które opiekunki już wypełniły, nie zostaną nadpisane.)';
         }
         if(!confirm(msg))return;
-        planStoreDays(days,grp,dailyDate);
-        save(S);logChange('Plan zajęć wczytany z pliku: '+f.name+' ('+grp+')');
+        planAllGroups().forEach(function(g){planStoreDays(days,g,dailyDate);});
+        save(S);logChange('Plan zajęć wczytany z pliku: '+f.name+' (wszystkie grupy)');
         showToast('Plan wczytany: '+days.length+(days.length===1?' dzień':' dni')+' ✓');render();
       }).catch(function(e){
         impBtn.disabled=false;impBtn.textContent='⬆ Wgraj plan';
@@ -1438,8 +1438,8 @@ function renderDaily(main){
     if(curPlan){
       var delPlanBtn=el('button',{style:'background:#fff;border:2px solid var(--r);color:var(--r);border-radius:10px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit'},'🗑');
       delPlanBtn.onclick=function(){
-        if(!confirm('Usunąć plan dla '+planMonLabel+'?'))return;
-        delete S.monthlyPlans[curMonthKey];save(S);render();
+        if(!confirm('Usunąć plan dla '+planMonLabel+' we wszystkich grupach?'))return;
+        planAllGroups().forEach(function(g){delete S.monthlyPlans[dailyDate.substring(0,7)+'_'+g];});save(S);render();
       };
       planBanner.appendChild(delPlanBtn);
     }
@@ -1482,18 +1482,18 @@ function renderDaily(main){
     var hasLog=!!S.dailyLogs[key];
     var planHint=el('div',{style:'background:#EEF4FF;border-radius:12px;padding:12px 14px;margin-bottom:14px;border-left:4px solid var(--p)'});
     var hintInfo=planForDay.src==='doc'
-      ? (planForDay.goal?'🎯 Cel: '+planEsc(planForDay.goal.slice(0,120)):'')
+      ? ''
       : '🌅 Rano: '+planEsc(planForDay.morning)+' &nbsp;|&nbsp; 🌆 Popołudnie: '+planEsc(planForDay.afternoon);
     planHint.innerHTML='<div style="font-weight:800;font-size:13px;color:var(--p)">📋 Plan na ten dzień'+(planForDay.topic?' — '+planEsc(planForDay.topic):'')+'</div>'+
       (hintInfo?'<div style="font-size:12px;color:var(--lt);margin-top:4px">'+hintInfo+'</div>':'')+
-      '<div style="font-size:11px;color:var(--g);margin-top:4px">'+(hasLog?'Dziennik tego dnia był już edytowany — możesz wstawić tekst z planu ponownie':'✓ Wpisy wstępnie uzupełnione z planu — wystarczy nanieść poprawki')+'</div>';
+      '<div style="font-size:11px;color:var(--g);margin-top:4px">'+(hasLog?'Dziennik tego dnia był już edytowany — możesz wstawić temat z planu ponownie':'✓ Temat wpisany z planu — wystarczy nanieść poprawki')+'</div>';
     if(hasLog){
-      var reBtn=btn('↻ Wstaw tekst z planu','btn-o btn-sm',function(){
-        if(!confirm('Zastąpić tematy zajęć i podsumowanie tekstem z planu? Podpisy i odhaczenia zostaną zachowane.'))return;
+      var reBtn=btn('↻ Wstaw temat z planu','btn-o btn-sm',function(){
+        if(!confirm('Wstawić temat z planu? Podpisy i odhaczenia zostaną zachowane.'))return;
         var pe2=planEntriesFor(planForDay);
         var cur=S.dailyLogs[key];
-        var newEntries=pe2.entries.map(function(e,ix){var old=cur.entries&&cur.entries[ix];return Object.assign({},e,old?{done:old.done,sig:old.sig}:{});});
-        setLog('dailyLogs',key,Object.assign({},cur,{entries:newEntries,summary:pe2.summary||cur.summary||''}));
+        var newEntries=(cur.entries&&cur.entries.length?cur.entries:pe2.entries).map(function(e,ix){return ix===0?Object.assign({},e,{desc:pe2.entries[0].desc}):e;});
+        setLog('dailyLogs',key,Object.assign({},cur,{entries:newEntries}));
         showToast('Wstawiono tekst z planu ✓');render();
       });
       reBtn.style.marginTop='8px';

@@ -800,7 +800,6 @@ function renderHome(main){
   main.appendChild(lc);
   }
 }
-}
 
 // ── CHILDREN LIST ─────────────────────────────────────────────────────────────
 let childFilter='Wszystkie', childSearch='';
@@ -2849,13 +2848,19 @@ function boot(){
       if(app)app.innerHTML='<div style="padding:20px;color:red;font-family:sans-serif">Błąd: '+e.message+'<br><button onclick="location.reload()" style="margin-top:10px;padding:8px 16px;font-size:14px;border:none;border-radius:8px;background:#D4845A;color:#fff;cursor:pointer">Odśwież</button></div>';
     }
   }
+  // Zabezpieczenie: render po max 2s bez względu na wszystko
+  var _renderDone=false;
+  var _forceTimer=setTimeout(function(){if(!_renderDone){_renderDone=true;ensureStateFields();doRender();}},2000);
+  function safeRender(){if(_renderDone)return;_renderDone=true;clearTimeout(_forceTimer);doRender();}
   if(sb){
+    var sbTimer=setTimeout(function(){console.warn('SB load timeout');safeRender();},2500);
     loadFromSupabase().then(function(remote){
-      if(remote){applyRemote(remote);}else{save(S);}
+      clearTimeout(sbTimer);
+      try{if(remote){applyRemote(remote);}else{save(S);}}catch(e){console.warn('applyRemote:',e);}
       try{subscribeRealtime();}catch(e){console.warn('RT:',e);}
-      doRender();
-    }).catch(function(e){console.warn('SB failed:',e);ensureStateFields();doRender();});
-  }else{ensureStateFields();doRender();}
+      safeRender();
+    }).catch(function(e){clearTimeout(sbTimer);console.warn('SB failed:',e);ensureStateFields();safeRender();});
+  }else{ensureStateFields();safeRender();}
 }
 window.addEventListener('beforeunload',function(){flushSave();});
 window.addEventListener('error',function(e){

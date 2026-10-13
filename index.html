@@ -378,7 +378,7 @@ function printDailyMulti(grp, keys){
     var log=S.dailyLogs[k];
     if(!log)return;
     var entries=(log.entries||[]).map(function(e){
-      return '<tr><td>'+e.time+'</td><td>'+e.type+'</td><td>'+planEsc(e.desc||'').replace(/\n/g,'<br>')+'</td><td>'+(e.done?'✓':'')+'</td><td>'+(e.sig||'')+'</td></tr>';
+      return '<tr><td>'+e.time+'</td><td>'+e.type+'</td><td>'+(e.desc||'')+'</td><td>'+(e.done?'✓':'')+'</td><td>'+(e.sig||'')+'</td></tr>';
     }).join('');
     body+='<div class="day-block">';
     body+='<h2>📅 '+d+' &nbsp; Grupa: '+grp+'</h2>';
@@ -671,12 +671,11 @@ function renderHome(main){
   const allDeadlines=[
     ...(S.deadlines.obs||[]).map(function(d){return Object.assign({},d,{type:'obs',typeLbl:'Obserwacje dzieci'});}),
     ...(S.deadlines.selfEval||[]).map(function(d){return Object.assign({},d,{type:'selfEval',typeLbl:'Samoocena pracownika'});}),
-    ...(S.deadlines.criteria||[]).map(function(d){return Object.assign({},d,{type:'criteria',typeLbl:'Ocena kryteriów (standardy opieki)'});}),
-    ...(S.deadlines.diagnosis||[]).map(function(d){return Object.assign({},d,{type:'diagnosis',typeLbl:'Diagnoza obszarów rozwoju'});}),
-    ...(S.deadlines.other||[]).map(function(d){return Object.assign({},d,{type:'other',typeLbl:'Inny termin'});}),
+    ...(S.deadlines.criteria||[]).map(function(d){return Object.assign({},d,{type:'criteria',typeLbl:'Ocena kryteriów'});}),
+    ...(S.deadlines.diagnosis||[]).map(function(d){return Object.assign({},d,{type:'diagnosis',typeLbl:'Diagnoza obszarów'});}),
   ];
   const alertDeadlines=allDeadlines.filter(function(dl){
-    if(!isAdmin()&&dl.groupTarget&&dl.groupTarget!==S.currentUser.group)return false;
+    if(!isAdmin()&&dl.type==='obs'&&dl.groupTarget&&dl.groupTarget!==S.currentUser.group)return false;
     return deadlineStatus(dl)!==null;
   });
   const pending=vc.filter(function(c){
@@ -1064,306 +1063,6 @@ function renderAccidentForm(main, child){
   main.appendChild(card);
 }
 
-// ── IMPORT PLANU ZAJĘĆ (Word / PDF / TXT / JSON) ─────────────────────────────
-var PLAN_LIBS={
-  mammoth:'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',
-  pdf:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
-  pdfWorker:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
-};
-function planEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function planLoadScript(url,check){
-  return new Promise(function(res,rej){
-    if(check())return res();
-    var s=document.createElement('script');s.src=url;
-    s.onload=function(){if(check())res();else rej(new Error('Nie udało się załadować biblioteki'));};
-    s.onerror=function(){rej(new Error('Brak internetu – nie można wczytać czytnika plików'));};
-    document.head.appendChild(s);
-  });
-}
-function planReadBuffer(file){
-  return new Promise(function(res,rej){
-    var r=new FileReader();
-    r.onload=function(){res(r.result);};
-    r.onerror=function(){rej(new Error('Nie można odczytać pliku'));};
-    r.readAsArrayBuffer(file);
-  });
-}
-function planClean(s){return String(s||'').replace(/ /g,' ').replace(/[ \t]+/g,' ').trim();}
-
-// Każda linia: {cells:[{t:tekst,x:pozycja}], tbl:true/false}
-function planLinesFromDocx(buf){
-  return planLoadScript(PLAN_LIBS.mammoth,function(){return !!window.mammoth;}).then(function(){
-    return window.mammoth.convertToHtml({arrayBuffer:buf});
-  }).then(function(r){
-    var doc=new DOMParser().parseFromString('<div>'+r.value+'</div>','text/html');
-    var lines=[];
-    function cellText(td){
-      var ps=td.querySelectorAll('p,li');
-      if(!ps.length)return planClean(td.textContent);
-      var out=[];for(var i=0;i<ps.length;i++){var t=planClean(ps[i].textContent);if(t)out.push(t);}
-      return out.join('\n');
-    }
-    function walk(node){
-      for(var i=0;i<node.children.length;i++){
-        var c=node.children[i],tag=c.tagName.toLowerCase();
-        if(tag==='table'){
-          var rows=c.querySelectorAll('tr');
-          for(var r2=0;r2<rows.length;r2++){
-            var tds=rows[r2].children,cells=[],col=0;
-            for(var k=0;k<tds.length;k++){
-              cells.push({t:cellText(tds[k]),x:col});
-              col+=parseInt(tds[k].getAttribute('colspan')||'1',10);
-            }
-            lines.push({cells:cells,tbl:true});
-          }
-        }else if(tag==='ul'||tag==='ol'){
-          var lis=c.querySelectorAll('li');
-          for(var j=0;j<lis.length;j++){var lt=planClean(lis[j].textContent);if(lt)lines.push({cells:[{t:'• '+lt,x:0}],tbl:false});}
-        }else if(/^(p|h[1-6])$/.test(tag)){
-          var t=planClean(c.textContent);if(t)lines.push({cells:[{t:t,x:0}],tbl:false});
-        }else walk(c);
-      }
-    }
-    walk(doc.body.firstChild);
-    return lines;
-  });
-}
-function planLinesFromPdf(buf){
-  return planLoadScript(PLAN_LIBS.pdf,function(){return !!window.pdfjsLib;}).then(function(){
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc=PLAN_LIBS.pdfWorker;
-    return window.pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
-  }).then(function(pdf){
-    var pages=[];
-    for(var p=1;p<=pdf.numPages;p++)pages.push(pdf.getPage(p).then(function(pg){return pg.getTextContent();}));
-    return Promise.all(pages);
-  }).then(function(contents){
-    var lines=[];
-    contents.forEach(function(tc){
-      var rows=[];
-      tc.items.forEach(function(it){
-        if(!it.str||!it.str.trim())return;
-        var x=it.transform[4],y=it.transform[5],row=null;
-        for(var i=0;i<rows.length;i++){if(Math.abs(rows[i].y-y)<3){row=rows[i];break;}}
-        if(!row){row={y:y,items:[]};rows.push(row);}
-        row.items.push({x:x,w:it.width||0,s:it.str});
-      });
-      rows.sort(function(a,b){return b.y-a.y;});
-      rows.forEach(function(row){
-        row.items.sort(function(a,b){return a.x-b.x;});
-        var cells=[],cur=null,end=0;
-        row.items.forEach(function(it){
-          if(cur&&it.x-end<14){cur.t+=(it.x-end>1.5&&!/\s$/.test(cur.t)?' ':'')+it.s;}
-          else{cur={t:it.s,x:it.x};cells.push(cur);}
-          end=it.x+it.w;
-        });
-        cells.forEach(function(c){c.t=planClean(c.t);});
-        cells=cells.filter(function(c){return c.t;});
-        if(cells.length)lines.push({cells:cells,tbl:cells.length>1,pdf:true});
-      });
-    });
-    return lines;
-  });
-}
-function planLinesFromText(txt){
-  return txt.split(/\r?\n/).map(function(l){return planClean(l);}).filter(Boolean).map(function(t){return {cells:[{t:t,x:0}],tbl:false};});
-}
-
-var PLAN_MONTHS={stycz:1,luty:2,luteg:2,marc:3,marz:3,kwie:4,maj:5,maja:5,czerw:6,lip:7,sierp:8,wrze:9,pazdz:10,'październ':10,'paździer':10,listop:11,grud:12};
-function planMonthFromWord(w){
-  w=w.toLowerCase().replace('ź','z').replace('ż','z');
-  var ks=Object.keys(PLAN_MONTHS);
-  for(var i=0;i<ks.length;i++){var k=ks[i].replace('ź','z');if(w.indexOf(k)===0)return PLAN_MONTHS[ks[i]];}
-  return 0;
-}
-var PLAN_WD='(?:poniedziałek|wtorek|środa|czwartek|piątek|sobota|niedziela|pon|wt|śr|czw|pt|sob|nd|niedz)\\.?';
-// Szuka daty na początku tekstu; zwraca {d,m,rest}
-function planFindDate(text){
-  var t=String(text||'');
-  var head=t.slice(0,45),m,d,mo;
-  m=head.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if(m){d=+m[3];mo=+m[2];}
-  if(!m){m=head.match(/(^|[^\d:])(\d{1,2})\s*\.?\s+(stycz\S*|lut\S*|mar\S*|kwie\S*|maj\S*|czerw\S*|lip\S*|sierp\S*|wrze\S*|pa[źz]dz\S*|listop\S*|grud\S*)(\s+\d{4})?/i);
-    if(m){d=+m[2];mo=planMonthFromWord(m[3]);}}
-  if(!m){m=head.match(/(^|[^\d:,])(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{2,4}))?(?![\d:])/);
-    if(m){d=+m[2];mo=+m[3];}}
-  if(!m||!d||d>31||!mo||mo>12)return null;
-  var idx=t.indexOf(m[0])+m[0].length;
-  if(/^\s*[–\-]\s*\d{1,2}(\s|[.\/])/.test(t.slice(idx)))return {range:true,d:d,m:mo,rest:''}; // zakres dat (np. tydzień)
-  var before=t.slice(0,t.indexOf(m[0])).replace(new RegExp('^\\s*'+PLAN_WD+'\\s*[,–-]?\\s*','i'),'').replace(/^(dzień|data)\s*:?\s*/i,'').trim();
-  if(before.length>3)return null; // data w środku zdania – to nie nagłówek dnia
-  var rest=t.slice(idx).replace(/^\s*r\.?\s*/,'').replace(/^\s*\(?\s*/,'').replace(new RegExp('^'+PLAN_WD+'\\s*\\)?','i'),'').replace(/^[\s,–\-:)|]+/,'').trim();
-  return {d:d,m:mo,rest:rest};
-}
-// Klasyfikacja etykiety: topic / goal / morning / afternoon / date / extra / null
-function planClassify(label){
-  var l=String(label||'').toLowerCase().trim();
-  if(!l||l.length>45)return null;
-  if(/^(data|dzień|dzien|dzień tygodnia|termin)$/.test(l))return 'date';
-  if(/temat/.test(l))return 'topic';
-  if(/^cel|cele\b|cel dnia|cel zaj/.test(l))return 'goal';
-  if(/rano|poran|przedpo|stolik|plastycz|manipul|poznaw|sensory|dydakty|aktywność 1|zajęcia 1|zajęcie 1|forma 1|^i\.?$/.test(l))return 'morning';
-  if(/popo|po połud|muzycz|ruchow|taniec|tanecz|rytmik|aktywność 2|zajęcia 2|zajęcie 2|forma 2|^ii\.?$/.test(l))return 'afternoon';
-  if(/piosen|wiersz|zabaw|uwag|pomoc|materiał|bajk|opowiad|forma|aktywno|zajęcia|realizac|przebieg|metod/.test(l))return 'extra';
-  return null;
-}
-function planSplitLabel(t){
-  var m=String(t).match(/^([^:]{2,45}):\s*([\s\S]*)$/)||String(t).match(/^(.{2,40}?)\s[–-]\s([\s\S]*)$/);
-  if(!m)return null;
-  var k=planClassify(m[1]);
-  if(!k||k==='date')return null;
-  return {k:k,label:planClean(m[1]),v:m[2].trim()};
-}
-function planAppend(day,k,v,label){
-  v=String(v||'').trim();if(!v&&!label)return;
-  if(k==='extra'){k='notes';if(label)v=label+(v?': '+v:'');}
-  var cur=day[k]||'';
-  var sep=!cur?'':(/^(•|-|\*|\d+[.)])\s/.test(v)||/[.!?:]$/.test(cur)?'\n':' ');
-  day[k]=cur+sep+v;
-}
-function planParseLines(lines){
-  var days={},order=[],cur=null,field=null,table=null;
-  function getDay(d,m){var key=d+'.'+m;if(!days[key]){days[key]={d:d,m:m,topic:'',morning:'',afternoon:'',goal:'',notes:''};order.push(key);}return days[key];}
-  function colFor(cols,x,isPdf){
-    if(!isPdf){for(var i=cols.length-1;i>=0;i--){if(cols[i].x<=x)return cols[i];}return null;}
-    var best=null;for(var j=0;j<cols.length;j++){if(cols[j].x<=x+12)best=cols[j];}return best||cols[0];
-  }
-  function addText(day,t){
-    var lab=planSplitLabel(t);
-    if(lab){field=lab.k==='extra'?'notes':lab.k;planAppend(day,lab.k,lab.v,lab.k==='extra'?lab.label:'');return;}
-    if(!field){field=(!day.topic&&t.length<90)?'topic':'notes';planAppend(day,field,t);if(field==='topic')field='notes';return;}
-    planAppend(day,field,t);
-  }
-  lines.forEach(function(line){
-    var cells=line.cells;
-    // 1) Wiersz nagłówkowy tabeli?
-    if(cells.length>1){
-      var dated=[],labeled=0,nonEmpty=0;
-      cells.forEach(function(c){if(c.t)nonEmpty++;var dt=planFindDate(c.t);if(dt&&!dt.range&&dt.rest.length<30)dated.push(dt);else if(c.t.length<30&&planClassify(c.t))labeled++;});
-      if(dated.length>=2){ // tabela tygodniowa: dni w kolumnach
-        table={mode:'week',cols:cells.map(function(c){var dt=planFindDate(c.t);return {x:c.x,day:dt&&!dt.range&&dt.rest.length<30?getDay(dt.d,dt.m):null};}),pdf:!!line.pdf,rowKey:null};
-        return;
-      }
-      if(labeled>=2&&labeled===nonEmpty&&!(table&&table.mode==='week')){ // tabela: dni w wierszach, etykiety w kolumnach
-        table={mode:'rows',cols:cells.map(function(c){return {x:c.x,k:planClassify(c.t)||'extra',label:c.t};}),pdf:!!line.pdf};
-        return;
-      }
-    }
-    if(table&&!line.tbl&&!line.pdf)table=null;
-    if(table&&table.mode==='week'){
-      var labelCell=null;
-      cells.forEach(function(c){
-        var col=colFor(table.cols,c.x,table.pdf);if(!col)return;
-        if(!col.day){labelCell=c.t;var k=planClassify(c.t);table.rowKey=k&&k!=='date'?k:'extra';table.rowLabel=c.t;return;}
-        var k2=table.rowKey||'notes';
-        planAppend(col.day,k2,c.t,k2==='extra'?table.rowLabel:'');
-      });
-      return;
-    }
-    if(table&&table.mode==='rows'&&line.pdf&&cells.length===1){
-      var c1=colFor(table.cols,cells[0].x,true);
-      if(c1&&c1.k==='date')table=null; // tekst pod tabelą (PDF) – koniec tabeli
-    }
-    if(table&&table.mode==='rows'){
-      var rowDay=null;
-      cells.forEach(function(c){var col=colFor(table.cols,c.x,table.pdf);if(col&&col.k==='date'){var dt=planFindDate(c.t);if(dt&&!dt.range)rowDay=getDay(dt.d,dt.m);}});
-      if(!rowDay&&cells.length){var dt0=planFindDate(cells[0].t);if(dt0&&!dt0.range)rowDay=getDay(dt0.d,dt0.m);}
-      if(rowDay)cur=rowDay;
-      if(!cur)return;
-      cells.forEach(function(c){
-        var col=colFor(table.cols,c.x,table.pdf);if(!col||col.k==='date')return;
-        planAppend(cur,col.k,c.t,col.k==='extra'?col.label:'');
-      });
-      return;
-    }
-    // 2) Zwykły tekst – nagłówek dnia z datą?
-    var full=cells.map(function(c){return c.t;}).join(' ');
-    var dt=planFindDate(full);
-    if(dt&&dt.range){cur=null;field=null;return;}
-    if(dt){cur=getDay(dt.d,dt.m);field=null;if(dt.rest)addText(cur,dt.rest);return;}
-    if(cur)addText(cur,full);
-    else{ if(!days._pre)days._pre=[];days._pre.push(full);}
-  });
-  var out=order.map(function(k){return days[k];}).filter(function(d){return d.topic||d.morning||d.afternoon||d.goal||d.notes;});
-  out._pre=days._pre||[];
-  return out;
-}
-// Plik bez dat → cały tekst dla jednego dnia
-function planParseSingle(lines,d,m){
-  var day={d:d,m:m,topic:'',morning:'',afternoon:'',goal:'',notes:''},field=null;
-  lines.forEach(function(line){
-    line.cells.forEach(function(c){
-      String(c.t).split('\n').forEach(function(t){
-        t=planClean(t);if(!t)return;
-        var lab=planSplitLabel(t);
-        if(lab){field=lab.k==='extra'?'notes':lab.k;planAppend(day,lab.k,lab.v,lab.k==='extra'?lab.label:'');return;}
-        if(!field&&!day.topic&&t.length<90){day.topic=t;field='notes';return;}
-        planAppend(day,field||'notes',t);
-      });
-    });
-  });
-  return day;
-}
-function planFinalizeDay(day){
-  // Jeśli brak podziału na rano/popołudnie – treść idzie do zajęć porannych
-  if(!day.morning&&!day.afternoon&&day.notes){day.morning=day.notes;day.notes='';}
-  return {date:(day.d<10?'0':'')+day.d+'.'+(day.m<10?'0':'')+day.m,topic:day.topic.trim(),morning:day.morning.trim(),afternoon:day.afternoon.trim(),goal:day.goal.trim(),notes:day.notes.trim(),src:'doc'};
-}
-// Główna funkcja: plik → lista dni planu
-function planImportFile(file,selectedDate){
-  var name=(file.name||'').toLowerCase();
-  var p;
-  if(/\.docx$/.test(name))p=planReadBuffer(file).then(planLinesFromDocx);
-  else if(/\.pdf$/.test(name))p=planReadBuffer(file).then(planLinesFromPdf);
-  else if(/\.(txt|md)$/.test(name))p=file.text().then(planLinesFromText);
-  else if(/\.doc$/.test(name))return Promise.reject(new Error('Stary format .doc – zapisz plik w Wordzie jako .docx lub PDF'));
-  else return Promise.reject(new Error('Nieobsługiwany typ pliku – wybierz Word (.docx), PDF lub JSON'));
-  return p.then(function(lines){
-    if(!lines.length)throw new Error('Plik jest pusty albo to skan (obraz) – potrzebny plik z tekstem');
-    var days=planParseLines(lines);
-    if(days.length){
-      // Teksty przed pierwszą datą (np. temat tygodnia/miesiąca) – pomijamy
-      return {days:days.map(planFinalizeDay),single:false};
-    }
-    var sd=selectedDate.split('-');
-    return {days:[planFinalizeDay(planParseSingle(lines,+sd[2],+sd[1]))],single:true};
-  });
-}
-// Zapis dni do S.monthlyPlans (scalanie z istniejącym planem danego miesiąca)
-function planStoreDays(days,grp,selectedDate){
-  if(!S.monthlyPlans)S.monthlyPlans={};
-  var selY=+selectedDate.substring(0,4),selM=+selectedDate.substring(5,7);
-  var touched={};
-  days.forEach(function(p){
-    var m=+p.date.split('.')[1],y=selY;
-    if(selM===12&&m<=2)y=selY+1;else if(selM<=2&&m===12)y=selY-1;
-    var key=y+'-'+(m<10?'0':'')+m+'_'+grp;
-    var arr=(S.monthlyPlans[key]||[]).filter(function(q){return q.date!==p.date;});
-    arr.push(p);
-    arr.sort(function(a,b){var A=a.date.split('.'),B=b.date.split('.');return (+A[1]-+B[1])||(+A[0]-+B[0]);});
-    S.monthlyPlans[key]=arr;touched[key]=1;
-  });
-  return Object.keys(touched).length;
-}
-// Wpisy dziennika na podstawie dnia z planu
-function planEntriesFor(p){
-  if(p.src!=='doc'){ // stary format JSON
-    return {entries:[
-      {time:'9:00–9:30',type:'Zajęcia – '+(p.morning||''),done:false,desc:p.topic||'',sig:''},
-      {time:'14:30–15:00',type:'Zajęcia – '+(p.afternoon||''),done:false,desc:'',sig:''},
-      {time:'15:00–15:45',type:'Zabawy dowolne',done:false,desc:'',sig:''}
-    ],summary:''};
-  }
-  // Wpisujemy tylko temat dnia – resztę opiekunki uzupełniają same
-  var topic=p.topic||String(p.morning||'').split('\n')[0];
-  return {entries:[
-    {time:'9:00–9:30',type:'Zajęcia dydaktyczne',done:false,desc:topic,sig:''},
-    {time:'14:30–15:00',type:'Zajęcia muzyczno-ruchowe',done:false,desc:'',sig:''},
-    {time:'15:00–15:45',type:'Zabawy dowolne',done:false,desc:'',sig:''}
-  ],summary:''};
-}
-function planAllGroups(){return (S.groups&&S.groups.length?S.groups:['Grupa 1','Grupa 2']).slice();}
-function planAutoGrow(t){t.style.height='auto';t.style.height=(t.scrollHeight+2)+'px';}
-
 // ── DAILY LOG ─────────────────────────────────────────────────────────────────
 let dailyDate=today();let dailyGroup='Grupa 1';
 function renderDaily(main){
@@ -1387,51 +1086,25 @@ function renderDaily(main){
   var planMonLabel=planMon?(function(){var m=['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];var p=planMon.split('-');return m[parseInt(p[1],10)-1]+' '+p[0];}()):'';
   planInfo.innerHTML=curPlan
     ? '<div style="font-weight:800;font-size:13px;color:#2a8855">📋 Plan miesiąca wczytany — '+planMonLabel+' ('+curPlan.length+' dni)</div><div style="font-size:11px;color:var(--lt)">Wpisy w dzienniku uzupełniane automatycznie z planu</div>'
-    : '<div style="font-weight:800;font-size:13px;color:#c07800">📋 Brak planu zajęć dla '+planMonLabel+'</div><div style="font-size:11px;color:var(--lt)">Wgraj plan w Wordzie (.docx) lub PDF – tekst sam wpisze się w odpowiednie dni</div>';
+    : '<div style="font-weight:800;font-size:13px;color:#c07800">📋 Brak planu zajęć dla '+planMonLabel+'</div><div style="font-size:11px;color:var(--lt)">Wgraj plik JSON z planem, aby automatycznie uzupełniać dziennik</div>';
   planBanner.appendChild(planInfo);
   if(isAdmin()||true){
     // Import plan button
     var impBtn=el('button',{style:'background:var(--p);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap'},'⬆ Wgraj plan');
-    var fileIn=el('input',{type:'file',accept:'.docx,.pdf,.json,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document',style:'display:none'});
+    var fileIn=el('input',{type:'file',accept:'.json',style:'display:none'});
     fileIn.onchange=function(){
       var f=fileIn.files[0];if(!f)return;
-      fileIn.value='';
-      if(/\.json$/i.test(f.name)){
-        var reader=new FileReader();
-        reader.onload=function(ev){
-          try{
-            var parsed=JSON.parse(ev.target.result);
-            if(!Array.isArray(parsed)){showToast('Błąd: plik JSON musi zawierać tablicę');return;}
-            if(!S.monthlyPlans)S.monthlyPlans={};
-            planAllGroups().forEach(function(g){S.monthlyPlans[dailyDate.substring(0,7)+'_'+g]=parsed;});
-            save(S);showToast('Plan wczytany: '+parsed.length+' dni ✓');render();
-          }catch(e){showToast('Błąd pliku JSON: '+e.message);}
-        };
-        reader.readAsText(f);
-        return;
-      }
-      impBtn.disabled=true;impBtn.textContent='⏳ Czytam plik…';
-      planImportFile(f,dailyDate).then(function(res){
-        impBtn.disabled=false;impBtn.textContent='⬆ Wgraj plan';
-        var days=res.days;
-        if(!days.length){showToast('Nie znalazłam treści planu w pliku');return;}
-        var msg;
-        if(res.single){
-          msg='W pliku nie ma dat – temat zostanie wpisany do dnia '+dailyDate.split('-').reverse().join('.')+' we wszystkich grupach.\n\nTemat: '+(days[0].topic||'—')+'\n\nWczytać?';
-        }else{
-          msg='Rozpoznano '+days.length+' dni planu ('+days[0].date+' – '+days[days.length-1].date+') – dla wszystkich grup.\n'+
-            'Do dziennika zostanie wpisany tylko temat dnia.\n\n'+
-            'Np. '+days[0].date+': '+(days[0].topic||String(days[0].morning||'').split('\n')[0]).slice(0,80)+'\n\n'+
-            'Wczytać? (Dni, które opiekunki już wypełniły, nie zostaną nadpisane.)';
-        }
-        if(!confirm(msg))return;
-        planAllGroups().forEach(function(g){planStoreDays(days,g,dailyDate);});
-        save(S);logChange('Plan zajęć wczytany z pliku: '+f.name+' (wszystkie grupy)');
-        showToast('Plan wczytany: '+days.length+(days.length===1?' dzień':' dni')+' ✓');render();
-      }).catch(function(e){
-        impBtn.disabled=false;impBtn.textContent='⬆ Wgraj plan';
-        alert('Nie udało się wczytać planu:\n'+(e&&e.message?e.message:e));
-      });
+      var reader=new FileReader();
+      reader.onload=function(ev){
+        try{
+          var parsed=JSON.parse(ev.target.result);
+          if(!Array.isArray(parsed)){showToast('Błąd: plik JSON musi zawierać tablicę');return;}
+          if(!S.monthlyPlans)S.monthlyPlans={};
+          S.monthlyPlans[curMonthKey]=parsed;
+          save(S);showToast('Plan wczytany: '+parsed.length+' dni ✓');render();
+        }catch(e){showToast('Błąd pliku JSON: '+e.message);}
+      };
+      reader.readAsText(f);
     };
     impBtn.onclick=function(){fileIn.click();};
     planBanner.appendChild(fileIn);
@@ -1439,8 +1112,8 @@ function renderDaily(main){
     if(curPlan){
       var delPlanBtn=el('button',{style:'background:#fff;border:2px solid var(--r);color:var(--r);border-radius:10px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit'},'🗑');
       delPlanBtn.onclick=function(){
-        if(!confirm('Usunąć plan dla '+planMonLabel+' we wszystkich grupach?'))return;
-        planAllGroups().forEach(function(g){delete S.monthlyPlans[dailyDate.substring(0,7)+'_'+g];});save(S);render();
+        if(!confirm('Usunąć plan dla '+planMonLabel+'?'))return;
+        delete S.monthlyPlans[curMonthKey];save(S);render();
       };
       planBanner.appendChild(delPlanBtn);
     }
@@ -1466,9 +1139,13 @@ function renderDaily(main){
       if(parseInt(parts[0],10)===dd2&&parseInt(parts[1],10)===mm2){planForDay=p;}
     });
   }
-  var defaultEntries,defaultSummary='';
+  var defaultEntries;
   if(planForDay){
-    var pe=planEntriesFor(planForDay);defaultEntries=pe.entries;defaultSummary=pe.summary;
+    defaultEntries=[
+      {time:'9:00–9:30',type:'Zajęcia – '+planForDay.morning,done:false,desc:planForDay.topic||'',sig:''},
+      {time:'14:30–15:00',type:'Zajęcia – '+planForDay.afternoon,done:false,desc:'',sig:''},
+      {time:'15:00–15:45',type:'Zabawy dowolne',done:false,desc:'',sig:''}
+    ];
   } else {
     defaultEntries=[
       {time:'9:00–9:30',type:'Zajęcia dydaktyczne',done:false,desc:'',sig:''},
@@ -1476,30 +1153,14 @@ function renderDaily(main){
       {time:'15:00–15:45',type:'Czytanie bajek',done:false,desc:'',sig:''}
     ];
   }
-  let log=S.dailyLogs[key]||{entries:defaultEntries,outdoorAM:{done:false,from:'9:30',to:'10:30',desc:'',sig:''},outdoorPM:{done:false,from:'15:00',to:'15:30',desc:'',sig:''},summary:defaultSummary,sigAM:'',sigPM:''};
+  let log=S.dailyLogs[key]||{entries:defaultEntries,outdoorAM:{done:false,from:'9:30',to:'10:30',desc:'',sig:''},outdoorPM:{done:false,from:'15:00',to:'15:30',desc:'',sig:''},summary:'',sigAM:'',sigPM:''};
   function saveLog(){setLog("dailyLogs",key,log);}
   // Show plan hint if available
-  if(planForDay){
-    var hasLog=!!S.dailyLogs[key];
+  if(planForDay&&!S.dailyLogs[key]){
     var planHint=el('div',{style:'background:#EEF4FF;border-radius:12px;padding:12px 14px;margin-bottom:14px;border-left:4px solid var(--p)'});
-    var hintInfo=planForDay.src==='doc'
-      ? ''
-      : '🌅 Rano: '+planEsc(planForDay.morning)+' &nbsp;|&nbsp; 🌆 Popołudnie: '+planEsc(planForDay.afternoon);
-    planHint.innerHTML='<div style="font-weight:800;font-size:13px;color:var(--p)">📋 Plan na ten dzień'+(planForDay.topic?' — '+planEsc(planForDay.topic):'')+'</div>'+
-      (hintInfo?'<div style="font-size:12px;color:var(--lt);margin-top:4px">'+hintInfo+'</div>':'')+
-      '<div style="font-size:11px;color:var(--g);margin-top:4px">'+(hasLog?'Dziennik tego dnia był już edytowany — możesz wstawić temat z planu ponownie':'✓ Temat wpisany z planu — wystarczy nanieść poprawki')+'</div>';
-    if(hasLog){
-      var reBtn=btn('↻ Wstaw temat z planu','btn-o btn-sm',function(){
-        if(!confirm('Wstawić temat z planu? Podpisy i odhaczenia zostaną zachowane.'))return;
-        var pe2=planEntriesFor(planForDay);
-        var cur=S.dailyLogs[key];
-        var newEntries=(cur.entries&&cur.entries.length?cur.entries:pe2.entries).map(function(e,ix){return ix===0?Object.assign({},e,{desc:pe2.entries[0].desc}):e;});
-        setLog('dailyLogs',key,Object.assign({},cur,{entries:newEntries}));
-        showToast('Wstawiono tekst z planu ✓');render();
-      });
-      reBtn.style.marginTop='8px';
-      planHint.appendChild(reBtn);
-    }
+    planHint.innerHTML='<div style="font-weight:800;font-size:13px;color:var(--p)">📋 Plan miesiąca — '+planForDay.topic+'</div>'+
+      '<div style="font-size:12px;color:var(--lt);margin-top:4px">🌅 Rano: '+planForDay.morning+' &nbsp;|&nbsp; 🌆 Popołudnie: '+planForDay.afternoon+'</div>'+
+      '<div style="font-size:11px;color:var(--g);margin-top:4px">✓ Wpisy wstępnie uzupełnione z planu — możesz edytować</div>';
     main.appendChild(planHint);
   }
   const actCard=el('div',{class:'card'});
@@ -1513,10 +1174,8 @@ function renderDaily(main){
     lbl.appendChild(cb);
     lbl.appendChild(el('span',{},' '+entry.time+' — '+entry.type));
     wrap.appendChild(lbl);
-    const di2=el('textarea',{class:'fi',placeholder:'Temat zajęć',rows:'1',style:'resize:vertical;min-height:42px;line-height:1.4;font-family:inherit;overflow:hidden'});
-    di2.value=entry.desc||'';
-    di2.oninput=function(){log.entries[i].desc=di2.value;planAutoGrow(di2);saveLog();};
-    setTimeout(function(){planAutoGrow(di2);},0);
+    const di2=el('input',{class:'fi',placeholder:'Temat zajęć',value:entry.desc||''});
+    di2.oninput=function(){log.entries[i].desc=di2.value;saveLog();};
     di2.style.marginBottom='6px';
     wrap.appendChild(di2);
     const si=el('input',{class:'fi',placeholder:'Podpis opiekuna',value:entry.sig||''});
@@ -1559,7 +1218,7 @@ function renderDaily(main){
   const printBtn=btn('🖨️ Drukuj / Pobierz PDF','btn-o full',function(){
     const wn=window.open('','_blank');
     const entries=log.entries.map(function(e){
-      return '<tr><td>'+e.time+'</td><td>'+e.type+'</td><td>'+planEsc(e.desc||'').replace(/\n/g,'<br>')+'</td><td>'+(e.done?'✓':'')+'</td><td>'+(e.sig||'')+'</td></tr>';
+      return '<tr><td>'+e.time+'</td><td>'+e.type+'</td><td>'+(e.desc||'')+'</td><td>'+(e.done?'✓':'')+'</td><td>'+(e.sig||'')+'</td></tr>';
     }).join('');
     wn.document.write('<html><head><title>Dziennik '+dailyDate+' '+grp+'</title><style>body{font-family:Arial,sans-serif;padding:20px}h2{color:#333}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f0f0f0}.sig-row{margin-top:30px;display:flex;gap:40px}.sig-box{flex:1;border-top:1px solid #333;padding-top:8px;font-size:13px}</style></head><body>');
     wn.document.write('<h2>📅 Dziennik Zajęć</h2>');
@@ -2063,7 +1722,7 @@ function renderAdmin(main){
     main.appendChild(bg);
   }
   const tabs=el('div',{class:'tabs'});
-  [['children','👶 Dzieci'],['users','👥 Pracownicy'],['kadry','🗂️ Kadry HR'],['terminy','📅 Terminy'],['log','📜 Historia']].forEach(function(tab){var id=tab[0],lbl=tab[1];
+  [['children','👶 Dzieci'],['users','👥 Pracownicy'],['kadry','🗂️ Kadry HR'],['terminy','📅 Terminy'],['docs','📁 Dokumenty'],['log','📜 Historia']].forEach(function(tab){var id=tab[0],lbl=tab[1];
     const t=el('button',{class:'tab'+(adminTab===id?' active':'')},lbl);
     t.onclick=function(){adminTab=id;render();};
     tabs.appendChild(t);
@@ -2073,6 +1732,7 @@ function renderAdmin(main){
   else if(adminTab==='users') renderAdminUsers(main);
   else if(adminTab==='kadry') renderAdminKadry(main);
   else if(adminTab==='terminy') renderAdminTerminy(main);
+  else if(adminTab==='docs') renderAdminDocs(main);
   else renderAdminLog(main);
 }
 
@@ -2117,13 +1777,8 @@ function renderAdminChildren(main){
     tabs.appendChild(t);
   });
   main.appendChild(tabs);
-  const srch=el('input',{class:'fi',id:'adminSearchInp',placeholder:'🔍 Szukaj dziecka...',value:adminSearch,style:'margin-bottom:12px',autocomplete:'off'});
-  srch.oninput=function(){
-    adminSearch=srch.value;var pos=srch.selectionStart;
-    render();
-    var n=document.getElementById('adminSearchInp');
-    if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}
-  };
+  const srch=el('input',{class:'fi',placeholder:'🔍 Szukaj...',value:adminSearch,style:'margin-bottom:12px'});
+  srch.oninput=function(){adminSearch=srch.value;render();};
   main.appendChild(srch);
   const filtered=S.children.filter(function(c){return (adminFilter==='Wszystkie'||c.group===adminFilter)&&c.name.toLowerCase().indexOf(adminSearch.toLowerCase())>-1;});
   if(!filtered.length){main.appendChild(el('div',{class:'empty'},'<div class="empty-icon">👶</div><div>Brak wyników</div>'));return;}
@@ -2387,8 +2042,7 @@ function ensureStateFields(){
   if(!S.childNotes)S.childNotes={};
   if(!S.photoConsent)S.photoConsent={};
   if(!S.groupNotes)S.groupNotes={};
-  if(!S.deadlines)S.deadlines={obs:[],selfEval:[],criteria:[],diagnosis:[],other:[]};
-  ['obs','selfEval','criteria','diagnosis','other'].forEach(function(k){if(!S.deadlines[k])S.deadlines[k]=[];});
+  if(!S.deadlines)S.deadlines={obs:[],selfEval:[],criteria:[],diagnosis:[]};
   if(!S.hrDeadlines)S.hrDeadlines={};
   if(!S.deletedUserIds)S.deletedUserIds=[];
   if(!S.monthlyPlans)S.monthlyPlans={};
@@ -2629,24 +2283,13 @@ function renderOccupancy(main){
   main.appendChild(dc);
 }
 
-var DEADLINE_TYPES=[
-  {key:'obs',label:'Obserwacje dzieci',icon:'👶',desc:'Opiekunki wypełniają obserwacje dzieci ze swojej grupy'},
-  {key:'diagnosis',label:'Diagnoza obszarów rozwoju',icon:'🧩',desc:'Diagnoza rozwoju dziecka w poszczególnych obszarach'},
-  {key:'criteria',label:'Ocena kryteriów (standardy opieki)',icon:'✅',desc:'Ocena spełniania kryteriów / standardów jakości opieki'},
-  {key:'selfEval',label:'Samoocena pracownika',icon:'🙋',desc:'Każdy pracownik wypełnia swoją samoocenę'},
-  {key:'other',label:'Inny termin',icon:'📌',desc:'Dowolny inny termin, np. zebranie, sprawozdanie, kontrola'}
-];
-function deadlineTypeOf(key){for(var i=0;i<DEADLINE_TYPES.length;i++){if(DEADLINE_TYPES[i].key===key)return DEADLINE_TYPES[i];}return DEADLINE_TYPES[DEADLINE_TYPES.length-1];}
 // ── TERMINY ───────────────────────────────────────────────────────────────────
 function renderTerminy(main){
   main.appendChild(el('div',{class:'section-title'},'📅 Terminy formularzy'));
   var now=new Date();
-  var TYPES=DEADLINE_TYPES;
+  var TYPES=[{key:'obs',label:'Obserwacje dzieci'},{key:'selfEval',label:'Samoocena pracownika'},{key:'criteria',label:'Ocena kryteriów'},{key:'diagnosis',label:'Diagnoza obszarów'}];
   var allDl=[];
-  TYPES.forEach(function(t){((S.deadlines&&S.deadlines[t.key])||[]).forEach(function(dl){
-    if(!isAdmin()&&dl.groupTarget&&S.currentUser&&dl.groupTarget!==S.currentUser.group)return;
-    allDl.push(Object.assign({},dl,{typeLbl:t.icon+' '+t.label+(dl.groupTarget?' · '+dl.groupTarget:'')+(dl.note?' — '+dl.note:'')}));
-  });});
+  TYPES.forEach(function(t){((S.deadlines&&S.deadlines[t.key])||[]).forEach(function(dl){allDl.push(Object.assign({},dl,{typeLbl:t.label}));});});
   if(!allDl.length){
     main.appendChild(el('div',{class:'card'},'Brak zaplanowanych terminów.'));
     if(isAdmin())renderAdminTerminy(main);return;
@@ -2777,33 +2420,27 @@ function renderAdminKadry(main){
 }
 
 function renderAdminTerminy(main){
-  var TYPES=DEADLINE_TYPES;
+  var TYPES=[{key:'obs',label:'Obserwacje dzieci'},{key:'selfEval',label:'Samoocena pracownika'},{key:'criteria',label:'Ocena kryteriów'},{key:'diagnosis',label:'Diagnoza obszarów'}];
   var ac=el('div',{class:'card',style:'border-color:var(--p);border-width:2px;margin-top:14px'});
   ac.appendChild(el('div',{style:'font-weight:800;font-size:14px;color:var(--p);margin-bottom:14px'},'⚙️ Zarządzaj terminami'));
-  var nf={label:'',date:'',type:'obs',groupTarget:'',note:''};
-  var typeSel=select('Czego dotyczy termin?',nf.type,TYPES.map(function(t){return {v:t.key,l:t.icon+' '+t.label};}),function(v){nf.type=v;typeHint.textContent=deadlineTypeOf(v).desc;});
-  ac.appendChild(typeSel);
-  var typeHint=el('div',{style:'font-size:11px;color:var(--lt);margin:-6px 0 12px'},'');
-  typeHint.textContent=deadlineTypeOf(nf.type).desc;
-  ac.appendChild(typeHint);
-  ac.appendChild(inp('Nazwa terminu',nf.label,function(v){nf.label=v;},{placeholder:'np. Obserwacje – I półrocze 2026/27'}));
-  ac.appendChild(inp('Termin (do kiedy)',nf.date,function(v){nf.date=v;},{type:'date'}));
-  ac.appendChild(select('Dla kogo','all',[{v:'all',l:'Wszyscy (obie grupy)'}].concat((S.groups||['Grupa 1','Grupa 2']).map(function(g){return {v:g,l:g};})),function(v){nf.groupTarget=v==='all'?'':v;}));
-  ac.appendChild(inp('Notatka (opcjonalnie)',nf.note,function(v){nf.note=v;},{placeholder:'np. oddać w wersji papierowej'}));
+  var nf={label:'',date:'',type:'obs',groupTarget:''};
+  ac.appendChild(inp('Nazwa terminu',nf.label,function(v){nf.label=v;},{placeholder:'np. Obserwacje I półrocze'}));
+  ac.appendChild(inp('Data terminu',nf.date,function(v){nf.date=v;},{type:'date'}));
+  ac.appendChild(select('Rodzaj',nf.type,TYPES.map(function(t){return t.key;}),function(v){nf.type=v;}));
   ac.appendChild(btn('➕ Dodaj termin','btn-p',function(){
     if(!nf.label.trim()||!nf.date){showToast('Wypełnij nazwę i datę');return;}
     var nd=Object.assign({},S.deadlines||{});
-    nd[nf.type]=(nd[nf.type]||[]).concat([{id:uid(),label:nf.label,date:nf.date,groupTarget:nf.groupTarget,note:nf.note}]);
+    nd[nf.type]=(nd[nf.type]||[]).concat([{id:uid(),label:nf.label,date:nf.date,groupTarget:nf.groupTarget}]);
     setState({deadlines:nd});logChange('Dodano termin: '+nf.label);showToast('Termin dodany');render();
   }));
   main.appendChild(ac);
   TYPES.forEach(function(type){
     var list=(S.deadlines&&S.deadlines[type.key])||[];if(!list.length)return;
     var lc=el('div',{class:'card',style:'margin-top:10px'});
-    lc.appendChild(el('div',{style:'font-weight:800;font-size:13px;margin-bottom:10px'},type.icon+' '+type.label));
+    lc.appendChild(el('div',{style:'font-weight:800;font-size:13px;margin-bottom:10px'},type.label));
     list.forEach(function(dl,i){
       var row=el('div',{style:'display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--br)'});
-      row.innerHTML='<div><div style="font-size:13px;font-weight:700">'+dl.label+'</div><div style="font-size:11px;color:var(--lt)">'+dl.date+(dl.groupTarget?' · '+dl.groupTarget:' · obie grupy')+(dl.note?' · '+dl.note:'')+'</div></div>';
+      row.innerHTML='<div><div style="font-size:13px;font-weight:700">'+dl.label+'</div><div style="font-size:11px;color:var(--lt)">'+dl.date+'</div></div>';
       var db=el('button',{style:'background:#FFF0F2;border:1px solid var(--r);color:var(--r);border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer'},'🗑️');
       db.onclick=function(){confirmDelete('Usunąć termin?',function(){
         var nd=Object.assign({},S.deadlines||{});
@@ -2813,6 +2450,308 @@ function renderAdminTerminy(main){
       row.appendChild(db);lc.appendChild(row);
     });
     main.appendChild(lc);
+  });
+}
+
+function renderAdminDocs(main){
+  // Helper: find user/child name by id
+  function userName(id){var u=(S.users||[]).find(function(x){return x.id===id;});return u?u.name:id;}
+  function childName(id){var c=(S.children||[]).find(function(x){return x.id===id;});return c?c.name:id;}
+
+  // Collect all documents into one list
+  var docs=[];
+
+  // 1. Obserwacje dzieci
+  Object.keys(S.observations||{}).forEach(function(childId){
+    var obs=S.observations[childId]||{};
+    Object.keys(obs).forEach(function(area){
+      var entries=obs[area]||[];
+      entries.forEach(function(e,i){
+        docs.push({
+          id:'obs_'+childId+'_'+area+'_'+i,
+          type:'obs',
+          typeLabel:'👁️ Obserwacja',
+          subject:childName(childId),
+          area:area,
+          date:e.date||'',
+          preview:(e.text||'').slice(0,80),
+          remove:function(childId,area,i){return function(){
+            confirmDelete('Usunąć obserwację?',function(){
+              var no=Object.assign({},S.observations||{});
+              no[childId]=Object.assign({},no[childId]||{});
+              no[childId][area]=(no[childId][area]||[]).filter(function(_,j){return j!==i;});
+              setState({observations:no});showToast('Usunięto obserwację');render();
+            });
+          };}(childId,area,i),
+          print:function(childId,area,e){return function(){
+            var w=window.open('','_blank');if(!w){showToast('Zezwól na otwieranie okien');return;}
+            w.document.write('<html><head><meta charset="UTF-8"><title>Obserwacja</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:700px;margin:0 auto}h2{color:#5B8DEF}p{line-height:1.6}@media print{button{display:none}}</style></head><body>');
+            w.document.write('<h2>Obserwacja dziecka: '+childName(childId)+'</h2>');
+            w.document.write('<p><strong>Obszar:</strong> '+area+'</p>');
+            w.document.write('<p><strong>Data:</strong> '+(e.date||'-')+'</p>');
+            w.document.write('<p><strong>Opis:</strong><br>'+(e.text||'').replace(/\n/g,'<br>')+'</p>');
+            w.document.write('<br><button onclick="window.print()">🖨️ Drukuj</button></body></html>');
+            w.document.close();
+          };}(childId,area,e)
+        });
+      });
+    });
+  });
+
+  // 2. Objawy chorobowe
+  Object.keys(S.symptoms||{}).forEach(function(childId){
+    var list=S.symptoms[childId]||[];
+    list.forEach(function(e,i){
+      docs.push({
+        id:'sym_'+childId+'_'+i,
+        type:'sym',
+        typeLabel:'🤒 Objawy chorobowe',
+        subject:childName(childId),
+        area:'',
+        date:e.date||'',
+        preview:(e.symptoms||'').slice(0,80),
+        remove:function(childId,i){return function(){
+          confirmDelete('Usunąć zgłoszenie objawów?',function(){
+            var ns=Object.assign({},S.symptoms||{});
+            ns[childId]=(ns[childId]||[]).filter(function(_,j){return j!==i;});
+            setState({symptoms:ns});showToast('Usunięto');render();
+          });
+        };}(childId,i),
+        print:function(childId,e){return function(){
+          var w=window.open('','_blank');if(!w){showToast('Zezwól na otwieranie okien');return;}
+          w.document.write('<html><head><meta charset="UTF-8"><title>Objawy</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:700px}h2{color:#E8526A}@media print{button{display:none}}</style></head><body>');
+          w.document.write('<h2>Zgłoszenie objawów: '+childName(childId)+'</h2>');
+          w.document.write('<p><strong>Data:</strong> '+(e.date||'-')+'</p>');
+          w.document.write('<p><strong>Objawy:</strong><br>'+(e.symptoms||'').replace(/\n/g,'<br>')+'</p>');
+          if(e.action)w.document.write('<p><strong>Podjęte działania:</strong><br>'+e.action.replace(/\n/g,'<br>')+'</p>');
+          w.document.write('<br><button onclick="window.print()">🖨️ Drukuj</button></body></html>');
+          w.document.close();
+        };}(childId,e)
+      });
+    });
+  });
+
+  // 3. Trudne zachowania
+  Object.keys(S.behaviors||{}).forEach(function(childId){
+    var list=S.behaviors[childId]||[];
+    list.forEach(function(e,i){
+      docs.push({
+        id:'beh_'+childId+'_'+i,
+        type:'beh',
+        typeLabel:'⚡ Trudne zachowanie',
+        subject:childName(childId),
+        area:'',
+        date:e.date||'',
+        preview:(e.description||'').slice(0,80),
+        remove:function(childId,i){return function(){
+          confirmDelete('Usunąć zgłoszenie zachowania?',function(){
+            var nb=Object.assign({},S.behaviors||{});
+            nb[childId]=(nb[childId]||[]).filter(function(_,j){return j!==i;});
+            setState({behaviors:nb});showToast('Usunięto');render();
+          });
+        };}(childId,i),
+        print:function(childId,e){return function(){
+          var w=window.open('','_blank');if(!w){showToast('Zezwól na otwieranie okien');return;}
+          w.document.write('<html><head><meta charset="UTF-8"><title>Zachowanie</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:700px}h2{color:#F4A94E}@media print{button{display:none}}</style></head><body>');
+          w.document.write('<h2>Trudne zachowanie: '+childName(childId)+'</h2>');
+          w.document.write('<p><strong>Data:</strong> '+(e.date||'-')+'</p>');
+          w.document.write('<p><strong>Opis:</strong><br>'+(e.description||'').replace(/\n/g,'<br>')+'</p>');
+          if(e.action)w.document.write('<p><strong>Reakcja:</strong><br>'+e.action.replace(/\n/g,'<br>')+'</p>');
+          w.document.write('<br><button onclick="window.print()">🖨️ Drukuj</button></body></html>');
+          w.document.close();
+        };}(childId,e)
+      });
+    });
+  });
+
+  // 4. Oceny pracowników
+  Object.keys(S.employeeEvals||{}).forEach(function(userId){
+    var list=S.employeeEvals[userId]||[];
+    list.forEach(function(e,i){
+      docs.push({
+        id:'eval_'+userId+'_'+i,
+        type:'eval',
+        typeLabel:'⭐ Ocena pracownika',
+        subject:userName(userId),
+        area:'',
+        date:e.date||'',
+        preview:'Avg: '+(e._avgScale||0).toFixed(1)+' / 5',
+        remove:function(userId,i){return function(){
+          confirmDelete('Usunąć ocenę?',function(){
+            var ne=Object.assign({},S.employeeEvals||{});
+            ne[userId]=(ne[userId]||[]).filter(function(_,j){return j!==i;});
+            setState({employeeEvals:ne});showToast('Usunięto ocenę');render();
+          });
+        };}(userId,i),
+        print:function(userId,e){return function(){
+          var u=(S.users||[]).find(function(x){return x.id===userId;})||{name:userId};
+          var w=window.open('','_blank');if(!w){showToast('Zezwól na otwieranie okien');return;}
+          w.document.write('<html><head><meta charset="UTF-8"><title>Ocena</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:700px}h2{color:#5B8DEF}table{width:100%;border-collapse:collapse;margin:16px 0}td,th{border:1px solid #ddd;padding:8px;font-size:13px}th{background:#EEF4FF}@media print{button{display:none}}</style></head><body>');
+          w.document.write('<h2>Ocena pracownika: '+u.name+'</h2>');
+          w.document.write('<p><strong>Data:</strong> '+(e.date||'-')+'</p>');
+          w.document.write('<p><strong>Średnia ocena:</strong> '+(e._avgScale||0).toFixed(1)+' / 5</p>');
+          if(e.selfNote)w.document.write('<p><strong>Samoocena:</strong> '+e.selfNote+'</p>');
+          if(e.evalNote)w.document.write('<p><strong>Uwagi kierownika:</strong> '+e.evalNote+'</p>');
+          if(e.criteria&&e.criteria.length){
+            w.document.write('<table><tr><th>Kryterium</th><th>Ocena</th></tr>');
+            e.criteria.forEach(function(c){w.document.write('<tr><td>'+c.label+'</td><td>'+c.scale+' / 5</td></tr>');});
+            w.document.write('</table>');
+          }
+          w.document.write('<br><button onclick="window.print()">🖨️ Drukuj</button></body></html>');
+          w.document.close();
+        };}(userId,e)
+      });
+    });
+  });
+
+  // 5. Diagnozy obszarów
+  Object.keys(S.employeeDiagnosis||{}).forEach(function(userId){
+    var list=S.employeeDiagnosis[userId]||[];
+    list.forEach(function(e,i){
+      docs.push({
+        id:'diag_'+userId+'_'+i,
+        type:'diag',
+        typeLabel:'🔬 Diagnoza obszarów',
+        subject:userName(userId),
+        area:'',
+        date:e.date||'',
+        preview:(e.notes||'').slice(0,80),
+        remove:function(userId,i){return function(){
+          confirmDelete('Usunąć diagnozę?',function(){
+            var nd=Object.assign({},S.employeeDiagnosis||{});
+            nd[userId]=(nd[userId]||[]).filter(function(_,j){return j!==i;});
+            setState({employeeDiagnosis:nd});showToast('Usunięto diagnozę');render();
+          });
+        };}(userId,i),
+        print:function(userId,e){return function(){
+          var u=(S.users||[]).find(function(x){return x.id===userId;})||{name:userId};
+          var w=window.open('','_blank');if(!w){showToast('Zezwól na otwieranie okien');return;}
+          w.document.write('<html><head><meta charset="UTF-8"><title>Diagnoza</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:700px}h2{color:#52C97B}@media print{button{display:none}}</style></head><body>');
+          w.document.write('<h2>Diagnoza obszarów: '+u.name+'</h2>');
+          w.document.write('<p><strong>Data:</strong> '+(e.date||'-')+'</p>');
+          if(e.notes)w.document.write('<p><strong>Notatki:</strong><br>'+e.notes.replace(/\n/g,'<br>')+'</p>');
+          w.document.write('<br><button onclick="window.print()">🖨️ Drukuj</button></body></html>');
+          w.document.close();
+        };}(userId,e)
+      });
+    });
+  });
+
+  // 6. Plany miesięczne
+  Object.keys(S.monthlyPlans||{}).forEach(function(key){
+    var plan=S.monthlyPlans[key];
+    docs.push({
+      id:'plan_'+key,
+      type:'plan',
+      typeLabel:'📅 Plan miesięczny',
+      subject:key,
+      area:'',
+      date:(plan.month||key)+'',
+      preview:(plan.content||plan.text||JSON.stringify(plan)).slice(0,80),
+      remove:function(key){return function(){
+        confirmDelete('Usunąć plan miesięczny?',function(){
+          var np=Object.assign({},S.monthlyPlans||{});
+          delete np[key];
+          setState({monthlyPlans:np});showToast('Usunięto plan');render();
+        });
+      };}(key),
+      print:function(key,plan){return function(){
+        var w=window.open('','_blank');if(!w){showToast('Zezwól na otwieranie okien');return;}
+        w.document.write('<html><head><meta charset="UTF-8"><title>Plan</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:700px}h2{color:#5B8DEF}@media print{button{display:none}}</style></head><body>');
+        w.document.write('<h2>Plan miesięczny: '+key+'</h2>');
+        var content=typeof plan==='string'?plan:(plan.content||plan.text||JSON.stringify(plan,null,2));
+        w.document.write('<pre style="white-space:pre-wrap;font-family:Arial;font-size:13px;line-height:1.6">'+content+'</pre>');
+        w.document.write('<br><button onclick="window.print()">🖨️ Drukuj</button></body></html>');
+        w.document.close();
+      };}(key,plan)
+    });
+  });
+
+  // 7. Plany dnia (dzienniki)
+  Object.keys(S.dailyLogs||{}).forEach(function(dateKey){
+    var log=S.dailyLogs[dateKey];
+    docs.push({
+      id:'log_'+dateKey,
+      type:'dlog',
+      typeLabel:'📓 Dziennik dnia',
+      subject:dateKey,
+      area:'',
+      date:dateKey,
+      preview:(log.summary||log.content||JSON.stringify(log)).slice(0,80),
+      remove:function(dateKey){return function(){
+        confirmDelete('Usunąć dziennik dnia?',function(){
+          var nl=Object.assign({},S.dailyLogs||{});
+          delete nl[dateKey];
+          setState({dailyLogs:nl});showToast('Usunięto dziennik');render();
+        });
+      };}(dateKey),
+      print:function(dateKey,log){return function(){
+        var w=window.open('','_blank');if(!w){showToast('Zezwól na otwieranie okien');return;}
+        w.document.write('<html><head><meta charset="UTF-8"><title>Dziennik</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:700px}h2{color:#5B8DEF}@media print{button{display:none}}</style></head><body>');
+        w.document.write('<h2>Dziennik dnia: '+dateKey+'</h2>');
+        var content=typeof log==='string'?log:(log.summary||log.content||JSON.stringify(log,null,2));
+        w.document.write('<pre style="white-space:pre-wrap;font-family:Arial;font-size:13px;line-height:1.6">'+content+'</pre>');
+        w.document.write('<br><button onclick="window.print()">🖨️ Drukuj</button></body></html>');
+        w.document.close();
+      };}(dateKey,log)
+    });
+  });
+
+  // Sort by date desc
+  docs.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+
+  // Filter UI
+  var filterTypes=['all','obs','sym','beh','eval','diag','plan','dlog'];
+  var filterLabels={'all':'Wszystkie','obs':'Obserwacje','sym':'Objawy','beh':'Zachowania','eval':'Oceny','diag':'Diagnozy','plan':'Plany','dlog':'Dzienniki'};
+  if(typeof window._docFilter==='undefined')window._docFilter='all';
+  var filterRow=el('div',{style:'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px'});
+  filterTypes.forEach(function(ft){
+    var fb=el('button',{style:'padding:5px 12px;border-radius:20px;border:2px solid '+(window._docFilter===ft?'var(--p)':'var(--br)')+';background:'+(window._docFilter===ft?'var(--p)':'#fff')+';color:'+(window._docFilter===ft?'#fff':'var(--lt)')+';font-size:12px;font-weight:700;cursor:pointer;font-family:inherit'},filterLabels[ft]);
+    fb.onclick=function(){window._docFilter=ft;render();};
+    filterRow.appendChild(fb);
+  });
+  main.appendChild(filterRow);
+
+  var filtered=docs.filter(function(d){return window._docFilter==='all'||d.type===window._docFilter;});
+
+  if(!filtered.length){
+    main.appendChild(el('div',{class:'card',style:'text-align:center;color:var(--lt);padding:30px'},'Brak dokumentów tego typu.'));
+    return;
+  }
+
+  // Count badge
+  main.appendChild(el('div',{style:'font-size:12px;color:var(--lt);margin-bottom:10px'},filtered.length+' dokument'+(filtered.length===1?'':'ów')));
+
+  filtered.forEach(function(doc){
+    var card=el('div',{class:'card',style:'margin-bottom:10px;padding:13px 15px'});
+    var row=el('div',{style:'display:flex;align-items:flex-start;gap:10px'});
+
+    // Type badge
+    var badge=el('div',{style:'flex-shrink:0;background:#EEF4FF;color:var(--p);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;white-space:nowrap'},doc.typeLabel);
+
+    // Info
+    var info=el('div',{style:'flex:1;min-width:0'});
+    var titleRow=el('div',{style:'display:flex;align-items:center;gap:6px;flex-wrap:wrap'});
+    titleRow.appendChild(el('span',{style:'font-weight:800;font-size:13px'},doc.subject));
+    if(doc.area)titleRow.appendChild(el('span',{style:'font-size:11px;color:var(--lt)'},'· '+doc.area));
+    if(doc.date)titleRow.appendChild(el('span',{style:'font-size:11px;color:var(--lt);margin-left:auto'},doc.date));
+    info.appendChild(titleRow);
+    if(doc.preview)info.appendChild(el('div',{style:'font-size:12px;color:var(--lt);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%'},doc.preview+'…'));
+
+    // Buttons
+    var btnRow=el('div',{style:'display:flex;gap:6px;margin-top:8px;flex-wrap:wrap'});
+    var openBtn=el('button',{style:'padding:5px 11px;border-radius:8px;border:none;background:#EEF4FF;color:var(--p);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit'},'👁️ Otwórz');
+    openBtn.onclick=doc.print;
+    var delBtn=el('button',{style:'padding:5px 11px;border-radius:8px;border:none;background:#FFF0F2;color:var(--r);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit'},'🗑️ Usuń');
+    delBtn.onclick=doc.remove;
+    btnRow.appendChild(openBtn);
+    btnRow.appendChild(delBtn);
+    info.appendChild(btnRow);
+
+    row.appendChild(badge);
+    row.appendChild(info);
+    card.appendChild(row);
+    main.appendChild(card);
   });
 }
 

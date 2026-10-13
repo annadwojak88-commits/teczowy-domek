@@ -2461,46 +2461,43 @@ function renderAdminDocs(main){
   // Collect all documents into one list
   var docs=[];
 
-  // 1. Obserwacje dzieci
+  // 1. Obserwacje dzieci (zapisane jako tablica w S.observations[childId])
   Object.keys(S.observations||{}).forEach(function(childId){
-    var obs=S.observations[childId]||{};
-    Object.keys(obs).forEach(function(area){
-      var entries=obs[area]||[];
-      entries.forEach(function(e,i){
-        docs.push({
-          id:'obs_'+childId+'_'+area+'_'+i,
-          type:'obs',
-          typeLabel:'👁️ Obserwacja',
-          subject:childName(childId),
-          area:area,
-          date:e.date||'',
-          preview:(e.text||'').slice(0,80),
-          remove:function(childId,area,i){return function(){
-            confirmDelete('Usunąć obserwację?',function(){
-              var no=Object.assign({},S.observations||{});
-              no[childId]=Object.assign({},no[childId]||{});
-              no[childId][area]=(no[childId][area]||[]).filter(function(_,j){return j!==i;});
-              setState({observations:no});showToast('Usunięto obserwację');render();
-            });
-          };}(childId,area,i),
-          print:function(childId,area,e){return function(){
-            var w=window.open('','_blank');if(!w){showToast('Zezwól na otwieranie okien');return;}
-            w.document.write('<html><head><meta charset="UTF-8"><title>Obserwacja</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:700px;margin:0 auto}h2{color:#5B8DEF}p{line-height:1.6}@media print{button{display:none}}</style></head><body>');
-            w.document.write('<h2>Obserwacja dziecka: '+childName(childId)+'</h2>');
-            w.document.write('<p><strong>Obszar:</strong> '+area+'</p>');
-            w.document.write('<p><strong>Data:</strong> '+(e.date||'-')+'</p>');
-            w.document.write('<p><strong>Opis:</strong><br>'+(e.text||'').replace(/\n/g,'<br>')+'</p>');
-            w.document.write('<br><button onclick="window.print()">🖨️ Drukuj</button></body></html>');
-            w.document.close();
-          };}(childId,area,e)
-        });
+    var list=S.observations[childId]||[];
+    if(!Array.isArray(list))return;
+    list.forEach(function(e,i){
+      docs.push({
+        id:'obs_'+childId+'_'+i,
+        type:'obs',
+        typeLabel:'👁️ Obserwacja',
+        subject:childName(childId),
+        area:e.area||e.category||'',
+        date:e.date||'',
+        preview:(e.text||e.note||e.content||'').slice(0,80),
+        remove:function(childId,i){return function(){
+          confirmDelete('Usunąć obserwację?',function(){
+            var no=Object.assign({},S.observations||{});
+            no[childId]=(no[childId]||[]).filter(function(_,j){return j!==i;});
+            setState({observations:no});showToast('Usunięto obserwację');render();
+          });
+        };}(childId,i),
+        print:function(childId,e){return function(){
+          var w=window.open('','_blank');if(!w){showToast('Zezwól na otwieranie okien');return;}
+          w.document.write('<html><head><meta charset="UTF-8"><title>Obserwacja</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:700px;margin:0 auto}h2{color:#5B8DEF}p{line-height:1.6}@media print{button{display:none}}</style></head><body>');
+          w.document.write('<h2>Obserwacja dziecka: '+childName(childId)+'</h2>');
+          if(e.area||e.category)w.document.write('<p><strong>Obszar:</strong> '+(e.area||e.category)+'</p>');
+          w.document.write('<p><strong>Data:</strong> '+(e.date||'-')+'</p>');
+          w.document.write('<p><strong>Opis:</strong><br>'+(e.text||e.note||e.content||'').replace(/\n/g,'<br>')+'</p>');
+          w.document.write('<br><button onclick="window.print()">🖨️ Drukuj</button></body></html>');
+          w.document.close();
+        };}(childId,e)
       });
     });
   });
 
-  // 2. Objawy chorobowe
-  Object.keys(S.symptoms||{}).forEach(function(childId){
-    var list=S.symptoms[childId]||[];
+  // 2. Objawy chorobowe (S.healthLog)
+  Object.keys(S.healthLog||{}).forEach(function(childId){
+    var list=S.healthLog[childId]||[];
     list.forEach(function(e,i){
       docs.push({
         id:'sym_'+childId+'_'+i,
@@ -2509,12 +2506,11 @@ function renderAdminDocs(main){
         subject:childName(childId),
         area:'',
         date:e.date||'',
-        preview:(e.symptoms||'').slice(0,80),
+        preview:(e.symptoms||e.text||e.note||'').slice(0,80),
         remove:function(childId,i){return function(){
           confirmDelete('Usunąć zgłoszenie objawów?',function(){
-            var ns=Object.assign({},S.symptoms||{});
-            ns[childId]=(ns[childId]||[]).filter(function(_,j){return j!==i;});
-            setState({symptoms:ns});showToast('Usunięto');render();
+            setLog('healthLog',childId,(S.healthLog[childId]||[]).filter(function(_,j){return j!==i;}));
+            showToast('Usunięto');render();
           });
         };}(childId,i),
         print:function(childId,e){return function(){
@@ -2522,7 +2518,7 @@ function renderAdminDocs(main){
           w.document.write('<html><head><meta charset="UTF-8"><title>Objawy</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:700px}h2{color:#E8526A}@media print{button{display:none}}</style></head><body>');
           w.document.write('<h2>Zgłoszenie objawów: '+childName(childId)+'</h2>');
           w.document.write('<p><strong>Data:</strong> '+(e.date||'-')+'</p>');
-          w.document.write('<p><strong>Objawy:</strong><br>'+(e.symptoms||'').replace(/\n/g,'<br>')+'</p>');
+          w.document.write('<p><strong>Objawy:</strong><br>'+(e.symptoms||e.text||e.note||'').replace(/\n/g,'<br>')+'</p>');
           if(e.action)w.document.write('<p><strong>Podjęte działania:</strong><br>'+e.action.replace(/\n/g,'<br>')+'</p>');
           w.document.write('<br><button onclick="window.print()">🖨️ Drukuj</button></body></html>');
           w.document.close();
@@ -2531,9 +2527,9 @@ function renderAdminDocs(main){
     });
   });
 
-  // 3. Trudne zachowania
-  Object.keys(S.behaviors||{}).forEach(function(childId){
-    var list=S.behaviors[childId]||[];
+  // 3. Trudne zachowania (S.behaviorLog)
+  Object.keys(S.behaviorLog||{}).forEach(function(childId){
+    var list=S.behaviorLog[childId]||[];
     list.forEach(function(e,i){
       docs.push({
         id:'beh_'+childId+'_'+i,
@@ -2542,12 +2538,11 @@ function renderAdminDocs(main){
         subject:childName(childId),
         area:'',
         date:e.date||'',
-        preview:(e.description||'').slice(0,80),
+        preview:(e.description||e.text||e.note||'').slice(0,80),
         remove:function(childId,i){return function(){
           confirmDelete('Usunąć zgłoszenie zachowania?',function(){
-            var nb=Object.assign({},S.behaviors||{});
-            nb[childId]=(nb[childId]||[]).filter(function(_,j){return j!==i;});
-            setState({behaviors:nb});showToast('Usunięto');render();
+            setLog('behaviorLog',childId,(S.behaviorLog[childId]||[]).filter(function(_,j){return j!==i;}));
+            showToast('Usunięto');render();
           });
         };}(childId,i),
         print:function(childId,e){return function(){
@@ -2555,7 +2550,7 @@ function renderAdminDocs(main){
           w.document.write('<html><head><meta charset="UTF-8"><title>Zachowanie</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:700px}h2{color:#F4A94E}@media print{button{display:none}}</style></head><body>');
           w.document.write('<h2>Trudne zachowanie: '+childName(childId)+'</h2>');
           w.document.write('<p><strong>Data:</strong> '+(e.date||'-')+'</p>');
-          w.document.write('<p><strong>Opis:</strong><br>'+(e.description||'').replace(/\n/g,'<br>')+'</p>');
+          w.document.write('<p><strong>Opis:</strong><br>'+(e.description||e.text||e.note||'').replace(/\n/g,'<br>')+'</p>');
           if(e.action)w.document.write('<p><strong>Reakcja:</strong><br>'+e.action.replace(/\n/g,'<br>')+'</p>');
           w.document.write('<br><button onclick="window.print()">🖨️ Drukuj</button></body></html>');
           w.document.close();

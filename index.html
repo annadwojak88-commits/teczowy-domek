@@ -2865,12 +2865,16 @@ window.addEventListener('error',function(e){
 });
 var _bootCalled=false;
 function safeBoot(){if(_bootCalled)return;_bootCalled=true;boot();}
-var _sbTimeout=setTimeout(function(){console.warn('SB timeout');safeBoot();},6000);
+var _sbTimeout=setTimeout(function(){console.warn('SB timeout - starting without Supabase');safeBoot();},3000);
 var sbScript=document.createElement('script');
 sbScript.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
 sbScript.onload=function(){clearTimeout(_sbTimeout);safeBoot();};
-sbScript.onerror=function(){clearTimeout(_sbTimeout);safeBoot();};
+sbScript.onerror=function(){clearTimeout(_sbTimeout);console.warn('SB script failed');safeBoot();};
 document.head.appendChild(sbScript);
+// Dodatkowe zabezpieczenie — jeśli po 4s ekran splash nadal widoczny, wymuś boot
+setTimeout(function(){
+  if(!_bootCalled){console.warn('Force boot');safeBoot();}
+},4000);
 </script>
 <div id="del-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;padding:24px">
   <div style="background:#fff;border-radius:20px;padding:24px;max-width:320px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.2)">

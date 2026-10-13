@@ -1,4 +1,3 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -530,8 +529,8 @@ function renderLogin(app){
   const logoEl=el('div',{style:'text-align:center;margin-bottom:8px'});
   logoEl.innerHTML='<img src="'+LOGO+'" style="height:80px;width:auto"/>';
   card.appendChild(logoEl);
-  card.appendChild(el('h1','{}','Tęczowy Domek'));
-  card.appendChild(el('p','{}','System zarządzania żłobkiem'));
+  card.appendChild(el('h1',{},'Tęczowy Domek'));
+  card.appendChild(el('p',{},'System zarządzania żłobkiem'));
   const userList=el('div',{});
   var ls={};S.users.filter(function(u){return ls[u.id]?false:(ls[u.id]=true);}).forEach(function(u){
     const b=el('button',{class:'user-btn'});
@@ -2520,5 +2519,3 @@ function closeDelModal(){document.getElementById('del-modal').style.display='non
 </script>
 </body>
 </html>
-
-</body></html>

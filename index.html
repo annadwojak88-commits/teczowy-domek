@@ -1103,25 +1103,85 @@ function renderDaily(main){
   var planMonLabel=planMon?(function(){var m=['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];var p=planMon.split('-');return m[parseInt(p[1],10)-1]+' '+p[0];}()):'';
   planInfo.innerHTML=curPlan
     ? '<div style="font-weight:800;font-size:13px;color:#2a8855">📋 Plan miesiąca wczytany — '+planMonLabel+' ('+curPlan.length+' dni)</div><div style="font-size:11px;color:var(--lt)">Wpisy w dzienniku uzupełniane automatycznie z planu</div>'
-    : '<div style="font-weight:800;font-size:13px;color:#c07800">📋 Brak planu zajęć dla '+planMonLabel+'</div><div style="font-size:11px;color:var(--lt)">Wgraj plik JSON z planem, aby automatycznie uzupełniać dziennik</div>';
+    : '<div style="font-weight:800;font-size:13px;color:#c07800">📋 Brak planu zajęć dla '+planMonLabel+'</div><div style="font-size:11px;color:var(--lt)">Wgraj plik Word (.docx) lub JSON z planem, aby automatycznie uzupełniać dziennik</div>';
   planBanner.appendChild(planInfo);
   if(isAdmin()||true){
-    // Import plan button
+    // Import plan button (JSON + DOCX)
     var impBtn=el('button',{style:'background:var(--p);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap'},'⬆ Wgraj plan');
-    var fileIn=el('input',{type:'file',accept:'.json',style:'display:none'});
+    var fileIn=el('input',{type:'file',accept:'.json,.docx',style:'display:none'});
+    function parseDocxXml(xmlStr){
+      var parser=new DOMParser();
+      var doc=parser.parseFromString(xmlStr,'application/xml');
+      var ns='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+      var rows=doc.getElementsByTagNameNS(ns,'tr');
+      var days=[];
+      for(var i=0;i<rows.length;i++){
+        var cells=rows[i].getElementsByTagNameNS(ns,'tc');
+        // get text of a cell (all w:t nodes joined)
+        function cellText(cell){
+          var ts=cell.getElementsByTagNameNS(ns,'t');
+          var t='';for(var j=0;j<ts.length;j++)t+=ts[j].textContent||'';
+          return t.trim();
+        }
+        if(cells.length<2)continue; // skip rows with 0-1 cells (headers, empty)
+        var col0=cellText(cells[0]);
+        if(!col0||!/^\d{1,2}\.\d{1,2}/.test(col0))continue; // must start with date like 1.10
+        var col1=cells.length>1?cellText(cells[1]):'';
+        var col2=cells.length>2?cellText(cells[2]):'';
+        var col3=cells.length>3?cellText(cells[3]):'';
+        // Holiday row: col1 contains ŻŁOBEK NIECZYNNY etc
+        if(col1.toUpperCase().indexOf('NIECZYNNY')>-1||col1.toUpperCase().indexOf('WOLNY')>-1){
+          days.push({date:col0,topic:col1,morning:'',afternoon:'',closed:true});
+        } else {
+          days.push({date:col0,topic:col1,morning:col2,afternoon:col3});
+        }
+      }
+      return days;
+    }
     fileIn.onchange=function(){
       var f=fileIn.files[0];if(!f)return;
-      var reader=new FileReader();
-      reader.onload=function(ev){
-        try{
-          var parsed=JSON.parse(ev.target.result);
-          if(!Array.isArray(parsed)){showToast('Błąd: plik JSON musi zawierać tablicę');return;}
-          if(!S.monthlyPlans)S.monthlyPlans={};
-          S.monthlyPlans[curMonthKey]=parsed;
-          save(S);showToast('Plan wczytany: '+parsed.length+' dni ✓');render();
-        }catch(e){showToast('Błąd pliku JSON: '+e.message);}
-      };
-      reader.readAsText(f);
+      var name=f.name.toLowerCase();
+      if(name.endsWith('.json')){
+        var reader=new FileReader();
+        reader.onload=function(ev){
+          try{
+            var parsed=JSON.parse(ev.target.result);
+            if(!Array.isArray(parsed)){showToast('Błąd: plik JSON musi zawierać tablicę');return;}
+            if(!S.monthlyPlans)S.monthlyPlans={};
+            S.monthlyPlans[curMonthKey]=parsed;
+            save(S);showToast('Plan wczytany: '+parsed.length+' dni ✓');render();
+          }catch(e){showToast('Błąd pliku JSON: '+e.message);}
+        };
+        reader.readAsText(f);
+      } else if(name.endsWith('.docx')){
+        // Load JSZip if not already loaded
+        function doDocxImport(){
+          var reader2=new FileReader();
+          reader2.onload=function(ev){
+            try{
+              JSZip.loadAsync(ev.target.result).then(function(zip){
+                var xmlFile=zip.file('word/document.xml');
+                if(!xmlFile){showToast('Błąd: nie znaleziono document.xml w pliku');return;}
+                xmlFile.async('string').then(function(xmlStr){
+                  var days=parseDocxXml(xmlStr);
+                  if(!days.length){showToast('Nie znaleziono wierszy z datami w pliku Word');return;}
+                  if(!S.monthlyPlans)S.monthlyPlans={};
+                  S.monthlyPlans[curMonthKey]=days;
+                  save(S);showToast('Plan wczytany z Word: '+days.length+' dni ✓');render();
+                }).catch(function(e){showToast('Błąd odczytu XML: '+e.message);});
+              }).catch(function(e){showToast('Błąd odczytu DOCX: '+e.message);});
+            }catch(e){showToast('Błąd: '+e.message);}
+          };
+          reader2.readAsArrayBuffer(f);
+        }
+        if(typeof JSZip==='undefined'){
+          var s=document.createElement('script');
+          s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+          s.onload=doDocxImport;
+          s.onerror=function(){showToast('Błąd: nie można załadować biblioteki JSZip');};
+          document.head.appendChild(s);
+        } else { doDocxImport(); }
+      } else { showToast('Obsługiwane formaty: .json, .docx'); }
     };
     impBtn.onclick=function(){fileIn.click();};
     planBanner.appendChild(fileIn);
@@ -1159,8 +1219,8 @@ function renderDaily(main){
   var defaultEntries;
   if(planForDay){
     defaultEntries=[
-      {time:'9:00–9:30',type:'Zajęcia – '+planForDay.morning,done:false,desc:planForDay.topic||'',sig:''},
-      {time:'14:30–15:00',type:'Zajęcia – '+planForDay.afternoon,done:false,desc:'',sig:''},
+      {time:'9:00–9:30',type:'Zajęcia dydaktyczne',done:false,desc:planForDay.morning||planForDay.topic||'',sig:''},
+      {time:'14:30–15:00',type:'Zajęcia dydaktyczne',done:false,desc:planForDay.afternoon||'',sig:''},
       {time:'15:00–15:45',type:'Zabawy dowolne',done:false,desc:'',sig:''}
     ];
   } else {

@@ -479,17 +479,20 @@ function loadFromSupabase(){return fetchRemote().then(function(r){return r.ok?r.
 var RESCUE_KEYS=['observations','employeeDiagnosis','employeeEvals','dailyLogs','monthlyPlans','healthLog','behaviorLog','accidents','childNotes','groupNotes','childHistory','hrDeadlines','pickupLog','checkinLog','photoConsent'];
 var _rescueDone=false,_rescued=0,_hadLocalCopy=false;
 function _isEmptyVal(v){return v==null||v===''||(Array.isArray(v)&&!v.length)||(_isMap(v)&&!Object.keys(v).length);}
-function _rescueInto(lv,rv){ // zwraca {v, n}
+function _rescueInto(lv,rv,depth){ // zwraca {v, n}; tylko DODAJE brakujące wpisy, nigdy nie scala wnętrza istniejących
+  depth=depth||0;
   if(_isEmptyVal(lv))return {v:rv,n:0};
   if(_isEmptyVal(rv))return {v:_clone(lv),n:Array.isArray(lv)?lv.length:1};
   if(Array.isArray(lv)&&Array.isArray(rv)){
-    var ids={},js={};rv.forEach(function(x){if(_isMap(x)&&x.id!=null)ids[x.id]=1;js[JSON.stringify(x)]=1;});
-    var extra=lv.filter(function(x){return _isMap(x)&&x.id!=null?!ids[x.id]:!js[JSON.stringify(x)];});
+    // tylko listy wpisów z identyfikatorem (obserwacje, oceny itp.); listy bez id (np. zajęcia w dzienniku) zostają z serwera
+    if(!lv.every(function(x){return _isMap(x)&&x.id!=null;}))return {v:rv,n:0};
+    var ids={};rv.forEach(function(x){if(_isMap(x)&&x.id!=null)ids[x.id]=1;});
+    var extra=lv.filter(function(x){return !ids[x.id];});
     return extra.length?{v:rv.concat(_clone(extra)),n:extra.length}:{v:rv,n:0};
   }
-  if(_isMap(lv)&&_isMap(rv)){
+  if(_isMap(lv)&&_isMap(rv)&&depth<1){
     var out=rv,n=0;
-    Object.keys(lv).forEach(function(k){var r=_rescueInto(lv[k],rv[k]);if(r.n){if(out===rv)out=_clone(rv);out[k]=r.v;n+=r.n;}});
+    Object.keys(lv).forEach(function(k){var r=_rescueInto(lv[k],rv[k],depth+1);if(r.n){if(out===rv)out=_clone(rv);out[k]=r.v;n+=r.n;}});
     return {v:out,n:n};
   }
   return {v:rv,n:0};

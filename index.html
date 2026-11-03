@@ -300,6 +300,20 @@ input[type=checkbox]{width:22px!important;height:22px!important;accent-color:var
 .bell-item.new{background:#FFF8EE}
 .bi-ic{font-size:20px;width:28px;text-align:center}.bi-t{font-weight:800;font-size:13.5px}.bi-ago{font-weight:600;color:var(--lt);font-size:12px}.bi-x{font-size:13.5px;color:#3A3F55;margin-top:1px;word-wrap:break-word}
 @media(max-width:400px){.user-info{display:none}}
+.dict-btn{display:none;position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:400;align-items:center;gap:6px;background:linear-gradient(135deg,#F07AA8,#B48CEB);color:#fff;border:none;border-radius:999px;padding:12px 18px;font:900 15px Nunito,system-ui,sans-serif;box-shadow:0 6px 20px rgba(180,100,170,.35);cursor:pointer}
+.dict-btn.on{background:linear-gradient(135deg,#E0566F,#F08A5B);animation:dictPulse 1.2s infinite}
+@keyframes dictPulse{0%{box-shadow:0 0 0 0 rgba(224,86,111,.5)}70%{box-shadow:0 0 0 14px rgba(224,86,111,0)}100%{box-shadow:0 0 0 0 rgba(224,86,111,0)}}
+.dev-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.dev-chip{display:inline-flex;align-items:center;gap:5px;border:1.5px solid var(--br);background:#fff;border-radius:999px;padding:5px 11px;font:800 12.5px Nunito,system-ui,sans-serif;color:#4C5672;cursor:pointer}
+.dev-chip i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.dev-chip.on{background:#26293B;color:#fff;border-color:#26293B}
+.dev-chart{background:#FFFDFB;border:1px solid #F3EDE6;border-radius:14px;padding:6px 4px 0}
+.dev-diffs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.dev-diff{display:flex;align-items:center;gap:6px;background:#FAF7F2;border-radius:10px;padding:7px 9px;font-size:13px}
+.dev-diff i{width:9px;height:9px;border-radius:50%;flex-shrink:0}.dev-diff span{flex:1;font-weight:700}.dev-diff em{font-style:normal;color:var(--lt);font-size:12px}
+.dev-note{font-size:12px;color:var(--lt);margin-top:10px;line-height:1.4}
+@media(max-width:520px){.dev-diffs{grid-template-columns:1fr}}
+.dev-diff b{min-width:46px;text-align:right;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -1338,6 +1352,7 @@ function renderChildObs(main, child){
   topRow.appendChild(nb);
   if((S.observations[child.id]||[]).length)topRow.appendChild(btn('📄 Raport rozwoju (PDF)','btn-o',function(){printChildReport(child);}));
   main.appendChild(topRow);
+  renderDevChart(main,child);
   const obs=S.observations[child.id]||[];
   if(!obs.length){main.appendChild(el('div',{class:'empty'},'<div class="empty-icon">👁️</div><div>Brak obserwacji</div>'));return;}
   obs.forEach(function(o,i){
@@ -2583,6 +2598,11 @@ function printChildReport(child,silent){
     h+='<div style="margin:10px 0 4px;page-break-inside:avoid"><div style="display:flex;justify-content:space-between;font-size:13px"><b>'+_esc(s.name)+'</b><span>'+desc+trend+'</span></div>'+
        '<div style="height:12px;background:#EEF2FA;border-radius:6px;overflow:hidden;margin-top:4px"><div style="height:100%;width:'+Math.max(3,s.pct)+'%;background:'+col+'"></div></div></div>';
   });
+  var _ser=childDevSeries(child);
+  if(_ser.length>=2){
+    h+='<div style="margin-top:16px;page-break-inside:avoid"><div style="font-weight:800;margin-bottom:4px">📈 Rozwój w czasie</div>'+devChartSVG(_ser,{w:640,h:210})+
+      '<div style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;margin-top:2px">'+DEV_AREAS.map(function(a){return '<span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:'+a[2]+';margin-right:4px;vertical-align:-1px"></span>'+a[1]+'</span>';}).join('')+'</div></div>';
+  }
   var strong=[],support=[];
   st.forEach(function(s){strong=strong.concat(s.strong);support=support.concat(s.support);});
   h+='<div style="display:flex;gap:14px;margin-top:18px;page-break-inside:avoid">'+
@@ -2907,6 +2927,164 @@ function checkSystemNotify(){
   if(document.visibilityState==='visible'&&document.hasFocus&&document.hasFocus()){softRender();return;}  // aplikacja na ekranie — wystarczy dzwonek
   if(fresh.length===1)_sysNotify(fresh[0].title,fresh[0].text);
   else _sysNotify('Tęczowy Domek — '+fresh.length+' nowe',fresh.slice(0,3).map(function(i){return i.title+': '+i.text;}).join('\n'));
+}
+
+// ── DYKTOWANIE GŁOSEM 🎤 ─────────────────────────────────────────────────────
+var _SR=window.SpeechRecognition||window.webkitSpeechRecognition||null;
+var _dictField=null,_dictRec=null,_dictOn=false,_dictBtn=null,_dictBase='',_dictHide=null;
+function _isDictField(t){
+  if(!t||!t.tagName)return false;
+  if(t.tagName==='TEXTAREA')return true;
+  if(t.tagName!=='INPUT')return false;
+  if(t.classList.contains('pin-input'))return false;
+  var ty=(t.getAttribute('type')||'text').toLowerCase();
+  return ty==='text'||ty==='search';
+}
+function _dictEnsureBtn(){
+  if(_dictBtn)return _dictBtn;
+  _dictBtn=document.createElement('button');
+  _dictBtn.type='button';_dictBtn.className='dict-btn';_dictBtn.innerHTML='🎤 <span>Dyktuj</span>';
+  // nie zabieraj fokusu polu tekstowemu
+  _dictBtn.addEventListener('mousedown',function(e){e.preventDefault();});
+  _dictBtn.addEventListener('click',function(e){e.preventDefault();_dictOn?stopDictation():startDictation();});
+  document.body.appendChild(_dictBtn);
+  return _dictBtn;
+}
+function _dictShow(field){
+  if(!_SR)return;
+  clearTimeout(_dictHide);
+  _dictField=field;
+  var b=_dictEnsureBtn();b.style.display='flex';
+}
+function _dictMaybeHide(){
+  clearTimeout(_dictHide);
+  _dictHide=setTimeout(function(){
+    if(_dictOn)return;
+    var a=document.activeElement;
+    if(!_isDictField(a)&&_dictBtn)_dictBtn.style.display='none';
+  },250);
+}
+document.addEventListener('focusin',function(e){if(_isDictField(e.target))_dictShow(e.target);});
+document.addEventListener('focusout',function(){_dictMaybeHide();});
+function _setFieldValue(f,v){
+  f.value=v;
+  try{f.dispatchEvent(new Event('input',{bubbles:true}));f.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+}
+function _polishTidy(txt,prev){
+  txt=String(txt||'').trim();if(!txt)return '';
+  var needCap=!prev||/[.!?]\s*$/.test(prev)||/\n\s*$/.test(prev);
+  if(needCap)txt=txt.charAt(0).toUpperCase()+txt.slice(1);
+  // proste komendy głosowe
+  txt=txt.replace(/\s*\bkropka\b/gi,'.').replace(/\s*\bprzecinek\b/gi,',').replace(/\s*\bnowa linia\b\s*/gi,'\n').replace(/\s*\bznak zapytania\b/gi,'?');
+  txt=txt.replace(/([.!?]\s+)([a-ząćęłńóśźż])/g,function(m,a,b){return a+b.toUpperCase();});
+  return txt;
+}
+function startDictation(){
+  if(!_SR){showToast('Ta przeglądarka nie obsługuje dyktowania — użyj Chrome lub Safari');return;}
+  var f=_dictField;if(!f||!document.body.contains(f)){showToast('Najpierw kliknij w pole, które chcesz wypełnić');return;}
+  try{f.focus();}catch(e){}
+  _dictBase=f.value||'';
+  var rec=new _SR();_dictRec=rec;
+  rec.lang='pl-PL';rec.interimResults=true;rec.continuous=true;rec.maxAlternatives=1;
+  var finalTxt='';
+  rec.onresult=function(ev){
+    var interim='';
+    for(var i=ev.resultIndex;i<ev.results.length;i++){
+      var r=ev.results[i];
+      if(r.isFinal)finalTxt+=(finalTxt?' ':'')+r[0].transcript.trim();
+      else interim+=r[0].transcript;
+    }
+    var prev=_dictBase;
+    var add=_polishTidy(finalTxt+(interim?' '+interim:''),prev);
+    var sep=prev&&!/\s$/.test(prev)?' ':'';
+    _setFieldValue(f,prev+(add?sep+add:''));
+  };
+  rec.onerror=function(ev){
+    if(ev.error==='not-allowed'||ev.error==='service-not-allowed')showToast('Zezwól na dostęp do mikrofonu, aby dyktować');
+    else if(ev.error==='no-speech')showToast('Nic nie usłyszałam — spróbuj jeszcze raz');
+    else if(ev.error!=='aborted')showToast('Dyktowanie przerwane ('+ev.error+')');
+  };
+  rec.onend=function(){_dictOn=false;_dictUpd();_dictMaybeHide();};
+  try{rec.start();_dictOn=true;_dictUpd();}catch(e){showToast('Nie udało się włączyć mikrofonu');}
+}
+function stopDictation(){try{_dictRec&&_dictRec.stop();}catch(e){}_dictOn=false;_dictUpd();}
+function _dictUpd(){if(!_dictBtn)return;_dictBtn.classList.toggle('on',_dictOn);_dictBtn.innerHTML=_dictOn?'⏹ <span>Zakończ</span>':'🎤 <span>Dyktuj</span>';}
+
+// ── WYKRES ROZWOJU DZIECKA 📈 ─────────────────────────────────────────────────
+var DEV_AREAS=[
+  ['ROZWÓJ FIZYCZNY','Fizyczny','#4CBF7B'],['ROZWÓJ UMYSŁOWY','Umysłowy','#5B86E5'],['SAMOOBSŁUGA','Samoobsługa','#EE9B3B'],
+  ['SPRAWNOŚĆ MANUALNA','Manualny','#9B7BE0'],['MOWA','Mowa','#E86FA0'],['ROZWÓJ SPOŁECZNO-EMOCJONALNY','Społ.-emocjonalny','#2BB3B1']];
+function childDevSeries(child){
+  var obs=(S.observations[child.id]||[]).filter(function(o){return o.date&&OBS_DATA[o.ageGroup];}).slice().sort(function(a,b){return String(a.date).localeCompare(String(b.date));});
+  return obs.map(function(o){
+    var st=_obsSectionStats(o),m={};
+    st.forEach(function(s){if(s.pct!==null)m[s.name]=s.pct;});
+    var vals=Object.keys(m).map(function(k){return m[k];});
+    return {date:o.date,age:o.ageGroup,vals:m,avg:vals.length?Math.round(vals.reduce(function(a,b){return a+b;},0)/vals.length):null};
+  });
+}
+function devChartSVG(series,opts){
+  opts=opts||{};
+  var W=opts.w||640,H=opts.h||250,pl=40,pr=12,pt=14,pb=34;
+  var n=series.length,iw=W-pl-pr,ih=H-pt-pb;
+  function x(i){return n<=1?pl+iw/2:pl+iw*i/(n-1);}
+  function y(v){return pt+ih*(1-v/100);}
+  var g='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Wykres rozwoju" style="display:block;font-family:Nunito,Arial,sans-serif">';
+  [0,25,50,75,100].forEach(function(v){
+    g+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="#EEE6DC" stroke-width="1"'+(v===50?' stroke-dasharray="4 4"':'')+'/>';
+    g+='<text x="'+(pl-6)+'" y="'+(y(v)+4)+'" font-size="'+(opts.fs||11)+'" fill="#8A90A6" text-anchor="end">'+v+'%</text>';
+  });
+  series.forEach(function(p,i){
+    var d=p.date.split('-');
+    var anc=n>1&&i===0?'start':n>1&&i===n-1?'end':'middle';
+    g+='<text x="'+x(i)+'" y="'+(H-12)+'" font-size="'+(opts.fs||11)+'" fill="#5F6884" text-anchor="'+anc+'">'+(+d[2])+'.'+d[1]+'.'+d[0].slice(2)+'</text>';
+  });
+  var areas=opts.only?DEV_AREAS.filter(function(a){return a[0]===opts.only;}):DEV_AREAS;
+  areas.forEach(function(a){
+    var pts=[];series.forEach(function(p,i){if(a[0] in p.vals)pts.push([x(i),y(p.vals[a[0]]),p.vals[a[0]]]);});
+    if(!pts.length)return;
+    if(pts.length>1)g+='<polyline fill="none" stroke="'+a[2]+'" stroke-width="'+(opts.only?3.5:2.5)+'" stroke-linejoin="round" stroke-linecap="round" points="'+pts.map(function(q){return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ')+'"/>';
+    pts.forEach(function(q){g+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="'+(opts.only?5:4)+'" fill="#fff" stroke="'+a[2]+'" stroke-width="2.5"><title>'+a[1]+': '+q[2]+'%</title></circle>';});
+    if(opts.only)pts.forEach(function(q){g+='<text x="'+q[0].toFixed(1)+'" y="'+(q[1]-10).toFixed(1)+'" font-size="12" font-weight="800" fill="'+a[2]+'" text-anchor="middle">'+q[2]+'%</text>';});
+  });
+  g+='</svg>';
+  return g;
+}
+var _devArea=null;
+function renderDevChart(main,child){
+  var series=childDevSeries(child);
+  if(!series.length)return;
+  var card=el('div',{class:'card dev-card'});
+  var h=el('div',{class:'card-h',style:'justify-content:space-between'});
+  h.innerHTML='<span>📈 Rozwój w czasie</span><span class="pill">'+series.length+' '+(series.length===1?'obserwacja':series.length<5?'obserwacje':'obserwacji')+'</span>';
+  card.appendChild(h);
+  if(series.length===1){
+    card.appendChild(el('div',{class:'muted',style:'margin-bottom:8px'},'Po kolejnej obserwacji zobaczysz tu, jak zmienia się rozwój dziecka.'));
+  }
+  // przełącznik obszaru
+  var chips=el('div',{class:'dev-chips'});
+  var all=el('button',{class:'dev-chip'+(!_devArea?' on':'')},'Wszystkie');all.onclick=function(){_devArea=null;render();};chips.appendChild(all);
+  DEV_AREAS.forEach(function(a){
+    var c=el('button',{class:'dev-chip'+(_devArea===a[0]?' on':''),style:'--c:'+a[2]},'<i style="background:'+a[2]+'"></i>'+a[1]);
+    c.onclick=function(){_devArea=_devArea===a[0]?null:a[0];render();};chips.appendChild(c);
+  });
+  card.appendChild(chips);
+  var narrow=window.innerWidth<520;
+  var box=el('div',{class:'dev-chart'});box.innerHTML=devChartSVG(series,{only:_devArea,w:narrow?340:640,h:narrow?230:250,fs:narrow?12:11});card.appendChild(box);
+  // zmiana od poprzedniej
+  if(series.length>=2){
+    var last=series[series.length-1],prev=series[series.length-2];
+    var diffs=DEV_AREAS.filter(function(a){return (a[0] in last.vals)&&(a[0] in prev.vals);}).map(function(a){return {a:a,d:last.vals[a[0]]-prev.vals[a[0]],v:last.vals[a[0]]};});
+    var t=el('div',{class:'dev-diffs'});
+    diffs.forEach(function(x){
+      var col=x.d>4?'#2E9E5B':x.d<-4?'#C77A1E':'#7A8099';
+      t.innerHTML+='<div class="dev-diff"><i style="background:'+x.a[2]+'"></i><span>'+x.a[1]+'</span><em>'+x.v+'%</em><b style="color:'+col+'">'+(x.d>4?'▲ +'+x.d:x.d<-4?'▼ '+x.d:'=')+'</b></div>';
+    });
+    card.appendChild(el('div',{class:'muted',style:'margin:10px 0 4px;font-weight:700'},'Zmiana od poprzedniej obserwacji ('+_fmtDatePL(prev.date)+')'));
+    card.appendChild(t);
+  }
+  card.appendChild(el('div',{class:'dev-note'},'Wynik to odsetek cech na dobrym poziomie w arkuszu właściwym dla wieku dziecka (Wysoki = 100%, Przeciętny = 67%, Niski = 33%).'));
+  main.appendChild(card);
 }
 
 // ── KOPIE ZAPASOWE ────────────────────────────────────────────────────────────
